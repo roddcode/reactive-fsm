@@ -1,0 +1,70 @@
+{
+  "name": "reactive-fsm",
+  "version": "1.0.0",
+  "description": "Reactive Finite State Machine for AI agent orchestration — zero dependencies core, conditional tool gating, loop shield, adapters for Vercel AI SDK and OpenAI SDK",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./adapters/vercel-ai": {
+      "types": "./dist/adapters/vercel-ai.d.ts",
+      "import": "./dist/adapters/vercel-ai.js"
+    },
+    "./adapters/openai": {
+      "types": "./dist/adapters/openai.d.ts",
+      "import": "./dist/adapters/openai.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm build && pnpm test"
+  },
+  "keywords": [
+    "fsm",
+    "finite-state-machine",
+    "ai-agents",
+    "vercel-ai-sdk",
+    "openai",
+    "tool-gating"
+  ],
+  "author": "Alejandro Alvarado <roddcode.dev@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roddcode/reactive-fsm"
+  },
+  "bugs": {
+    "url": "https://github.com/roddcode/reactive-fsm/issues"
+  },
+  "homepage": "https://github.com/roddcode/reactive-fsm#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  },
+  "peerDependencies": {
+    "ai": "^4.0.0",
+    "openai": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  }
+}
