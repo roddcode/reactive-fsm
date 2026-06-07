@@ -212,7 +212,8 @@ describe('OpenAI Adapter — Flujo conversacional simulado', () => {
       const names = tools.map((t: any) => t.function.name).sort();
       expect(names).toEqual(['check_availability', 'reserve_slot', 'validate_dni']);
 
-      // Simular que el LLM llamó check_availability y reserve_slot
+      // Simular que el LLM llamó check_availability, reserve_slot, y reintentó
+      adapter.registerToolCall(); // 1 (shield reseteó en refreshGate)
       adapter.registerToolCall(); // 2
       adapter.registerToolCall(); // 3 → LOOP!
       expect(adapter.isLooping()).toBe(true);

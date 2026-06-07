@@ -1,4 +1,4 @@
-import type { FSMInstance } from '../core/machine';
+import type { FSMPublic, FSMInstance } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
 
 export interface VercelStepInfo {
@@ -37,16 +37,17 @@ function syncTools(
 }
 
 export function createVercelAdapter<TContext = any>(
-  fsm: FSMInstance,
+  fsm: FSMPublic,
   registry: ToolEntry<TContext>[],
   context: TContext,
 ): VercelAdapter<TContext> {
+  const _fsm = fsm as FSMInstance;
   const tools: Record<string, unknown> = {};
   let currentGate: string | null = null;
 
   return {
     inject(): VercelInjectResult {
-      currentGate = fsm.currentState;
+      currentGate = _fsm.currentState;
       syncTools(tools, currentGate, context, registry);
 
       return {
@@ -61,17 +62,17 @@ export function createVercelAdapter<TContext = any>(
             }
           }
 
-          fsm._resetLoopShield();
+          _fsm._resetLoopShield();
           for (let i = 0; i < consecutiveToolSteps; i++) {
-            fsm._registerToolCall();
+            _fsm._registerToolCall();
           }
 
-          if (fsm.isLooping) {
+          if (_fsm.isLooping) {
             return { toolChoice: 'none' as const };
           }
 
-          if (fsm.currentState !== currentGate) {
-            currentGate = fsm.currentState;
+          if (_fsm.currentState !== currentGate) {
+            currentGate = _fsm.currentState;
             syncTools(tools, currentGate, context, registry);
           }
 
@@ -81,7 +82,8 @@ export function createVercelAdapter<TContext = any>(
     },
 
     refreshGate(state: string): void {
-      fsm._setState(state);
+      _fsm._setState(state);
+      _fsm._resetLoopShield();
     },
   };
 }

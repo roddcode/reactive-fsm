@@ -2,8 +2,10 @@
  * Validación Manual — Reactive FSM Core
  * Ejecutar con: npx tsx tests/manual.ts
  */
-import { createFSM, buildToolsForGate, createLoopShield } from '../src/index';
-import type { ToolEntry } from '../src/index';
+import { createFSM } from '../src/core/machine';
+import { buildToolsForGate } from '../src/core/tool-gating';
+import { createLoopShield } from '../src/core/loop-shield';
+import type { ToolEntry } from '../src/core/tool-gating';
 
 let passed = 0;
 let failed = 0;

@@ -1,28 +1,39 @@
 import type { FSMPublic, FSMInstance } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
 
-export interface OpenAIInjectResult {
-  tools: unknown[];
-}
-
-export interface OpenAIAdapter<TContext = any> {
-  inject(): OpenAIInjectResult;
+export interface AnthropicAdapter<TContext = any> {
+  inject(): { tools: unknown[] };
   isLooping(): boolean;
   registerToolCall(): void;
   resetLoopShield(): void;
   refreshGate(state: string): void;
 }
 
-export function createOpenAIAdapter<TContext = any>(
+interface AnthropicTool {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+export function createAnthropicAdapter<TContext = any>(
   fsm: FSMPublic,
   registry: ToolEntry<TContext>[],
   context: TContext,
-): OpenAIAdapter<TContext> {
+): AnthropicAdapter<TContext> {
   const _fsm = fsm as FSMInstance;
   return {
-    inject(): OpenAIInjectResult {
+    inject() {
       const toolMap = buildToolsForGate(_fsm.currentState, context, registry);
-      return { tools: Object.values(toolMap) };
+      const toolsArray: AnthropicTool[] = [];
+      for (const t of Object.values(toolMap)) {
+        const tool = t as Record<string, unknown>;
+        toolsArray.push({
+          name: (tool.name as string) ?? '',
+          description: (tool.description as string) ?? '',
+          input_schema: (tool.parameters as Record<string, unknown>) ?? { type: 'object', properties: {} },
+        });
+      }
+      return { tools: toolsArray };
     },
 
     isLooping(): boolean {

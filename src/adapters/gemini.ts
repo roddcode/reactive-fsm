@@ -1,28 +1,33 @@
 import type { FSMPublic, FSMInstance } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
 
-export interface OpenAIInjectResult {
-  tools: unknown[];
-}
-
-export interface OpenAIAdapter<TContext = any> {
-  inject(): OpenAIInjectResult;
+export interface GeminiAdapter<TContext = any> {
+  inject(): { tools: Array<{ functionDeclarations: unknown[] }> };
   isLooping(): boolean;
   registerToolCall(): void;
   resetLoopShield(): void;
   refreshGate(state: string): void;
 }
 
-export function createOpenAIAdapter<TContext = any>(
+export function createGeminiAdapter<TContext = any>(
   fsm: FSMPublic,
   registry: ToolEntry<TContext>[],
   context: TContext,
-): OpenAIAdapter<TContext> {
+): GeminiAdapter<TContext> {
   const _fsm = fsm as FSMInstance;
   return {
-    inject(): OpenAIInjectResult {
+    inject() {
       const toolMap = buildToolsForGate(_fsm.currentState, context, registry);
-      return { tools: Object.values(toolMap) };
+      const declarations: unknown[] = [];
+      for (const t of Object.values(toolMap)) {
+        const tool = t as Record<string, unknown>;
+        declarations.push({
+          name: (tool.name as string) ?? '',
+          description: (tool.description as string) ?? '',
+          parameters: (tool.parameters as Record<string, unknown>) ?? { type: 'object', properties: {} },
+        });
+      }
+      return { tools: [{ functionDeclarations: declarations }] };
     },
 
     isLooping(): boolean {

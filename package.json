@@ -1,7 +1,7 @@
 {
   "name": "reactive-fsm",
-  "version": "1.0.0",
-  "description": "Reactive Finite State Machine for AI agent orchestration — zero dependencies core, conditional tool gating, loop shield, adapters for Vercel AI SDK and OpenAI SDK",
+  "version": "1.2.0",
+  "description": "Reactive Finite State Machine for AI agent orchestration — zero dependencies core, conditional tool gating, loop shield, adapters for Vercel AI SDK, OpenAI, Anthropic, LangChain, and Google Gemini",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,6 +17,18 @@
     "./adapters/openai": {
       "types": "./dist/adapters/openai.d.ts",
       "import": "./dist/adapters/openai.js"
+    },
+    "./adapters/anthropic": {
+      "types": "./dist/adapters/anthropic.d.ts",
+      "import": "./dist/adapters/anthropic.js"
+    },
+    "./adapters/langchain": {
+      "types": "./dist/adapters/langchain.d.ts",
+      "import": "./dist/adapters/langchain.js"
+    },
+    "./adapters/gemini": {
+      "types": "./dist/adapters/gemini.d.ts",
+      "import": "./dist/adapters/gemini.js"
     }
   },
   "files": [
@@ -36,6 +48,9 @@
     "ai-agents",
     "vercel-ai-sdk",
     "openai",
+    "anthropic",
+    "langchain",
+    "gemini",
     "tool-gating"
   ],
   "author": "Alejandro Alvarado <roddcode.dev@gmail.com>",
@@ -58,13 +73,25 @@
   },
   "peerDependencies": {
     "ai": "^4.0.0",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "langchain": "^0.3.0",
+    "@google/generative-ai": "^0.21.0"
   },
   "peerDependenciesMeta": {
     "ai": {
       "optional": true
     },
     "openai": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "langchain": {
+      "optional": true
+    },
+    "@google/generative-ai": {
       "optional": true
     }
   }
