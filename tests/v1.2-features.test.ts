@@ -193,16 +193,17 @@ describe('guard', () => {
     expect(() => fsm.transitionTo('B')).toThrow('Guard blocked');
   });
 
-  it('receives from and to states', () => {
+  it('receives from, to, and context', () => {
     const guard = vi.fn(() => true);
     const fsm = createFSM({
       initialState: 'A',
-      states: ['A', 'B'],
+      states: ['A', 'B'] as const,
       tools: { A: [], B: [] },
+      context: { role: 'admin' },
       guard,
     });
     fsm.transitionTo('B');
-    expect(guard).toHaveBeenCalledWith('A', 'B');
+    expect(guard).toHaveBeenCalledWith('A', 'B', { role: 'admin' });
   });
 
   it('is optional', () => {
@@ -270,5 +271,130 @@ describe('context', () => {
     });
     fsm.context.x = 99;
     expect(original.x).toBe(1); // not mutated
+  });
+});
+
+describe('fallbackState', () => {
+  it('auto-transitions to fallbackState when loop shield activates', () => {
+    const onTransition = vi.fn();
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B', 'ESCALATION'] as const,
+      tools: { A: ['t1'], B: [], ESCALATION: [] },
+      loopShield: { enabled: true, maxConsecutiveTools: 2, fallbackState: 'ESCALATION' },
+      onTransition,
+    });
+
+    fsm._registerToolCall(); // 1
+    expect(fsm.currentState).toBe('A');
+    fsm._registerToolCall(); // 2 → loop, fallback triggers
+    expect(fsm.currentState).toBe('ESCALATION');
+    expect(onTransition).toHaveBeenCalledWith('A', 'ESCALATION');
+  });
+
+  it('bypasses guard when transitioning to fallback', () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'FALLBACK'] as const,
+      tools: { A: ['t1'], FALLBACK: [] },
+      loopShield: { enabled: true, maxConsecutiveTools: 1, fallbackState: 'FALLBACK' },
+      guard: () => false,
+    });
+
+    fsm._registerToolCall(); // triggers loop → fallback
+    expect(fsm.currentState).toBe('FALLBACK');
+  });
+
+  it('does not re-trigger if already in fallback state', () => {
+    const onTransition = vi.fn();
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'FALLBACK'] as const,
+      tools: { A: ['t1'], FALLBACK: [] },
+      loopShield: { enabled: true, maxConsecutiveTools: 1, fallbackState: 'FALLBACK' },
+      onTransition,
+    });
+
+    fsm._registerToolCall(); // loop → FALLBACK
+    expect(onTransition).toHaveBeenCalledTimes(1);
+    fsm._registerToolCall(); // still looping, but already in FALLBACK
+    fsm._registerToolCall();
+    expect(onTransition).toHaveBeenCalledTimes(1); // no extra transitions
+    expect(fsm.currentState).toBe('FALLBACK');
+  });
+
+  it('throws if fallbackState is not in states list', () => {
+    expect(() => createFSM({
+      initialState: 'A',
+      states: ['A'],
+      tools: { A: [] },
+      loopShield: { enabled: true, maxConsecutiveTools: 2, fallbackState: 'NOPE' },
+    })).toThrow('fallbackState');
+  });
+
+  it('works when loopShield is disabled (no fallback)', () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A'] as const,
+      tools: { A: [] },
+      loopShield: { enabled: false, maxConsecutiveTools: 1, fallbackState: 'A' },
+    });
+    fsm._registerToolCall();
+    fsm._registerToolCall();
+    expect(fsm.currentState).toBe('A');
+  });
+});
+
+describe('type-safe states (const generic)', () => {
+  it('accepts as const states', () => {
+    const fsm = createFSM({
+      initialState: 'X',
+      states: ['X', 'Y', 'Z'] as const,
+      tools: { X: [], Y: [], Z: [] },
+    });
+    fsm.transitionTo('Y');
+    expect(fsm.currentState).toBe('Y');
+  });
+
+  it('works without as const (backward compatible)', () => {
+    const states = ['A', 'B'];
+    const fsm = createFSM({
+      initialState: 'A',
+      states,
+      tools: { A: [], B: [] },
+    });
+    fsm.transitionTo('B');
+    expect(fsm.currentState).toBe('B');
+  });
+});
+
+describe('guard with context', () => {
+  it('passes context as third parameter', () => {
+    const guard = vi.fn(() => true);
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B'] as const,
+      tools: { A: [], B: [] },
+      context: { role: 'admin', count: 5 },
+      guard,
+    });
+    fsm.transitionTo('B');
+    expect(guard).toHaveBeenCalledWith('A', 'B', { role: 'admin', count: 5 });
+  });
+
+  it('guard can use context to veto based on external data', () => {
+    const fsm = createFSM({
+      initialState: 'CART',
+      states: ['CART', 'PAYMENT'] as const,
+      tools: { CART: [], PAYMENT: [] },
+      context: { cartTotal: 0 },
+      guard: (_from, to, ctx) => to !== 'PAYMENT' || (ctx.cartTotal as number) > 0,
+    });
+
+    expect(() => fsm.transitionTo('PAYMENT')).toThrow('Guard blocked');
+
+    fsm.context.cartTotal = 150;
+    expect(() => fsm.transitionTo('PAYMENT')).not.toThrow();
+    expect(fsm.currentState).toBe('PAYMENT');
   });
 });

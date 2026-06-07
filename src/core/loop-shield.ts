@@ -1,6 +1,7 @@
 export interface LoopShieldConfig {
   enabled: boolean;
   maxConsecutiveTools: number;
+  fallbackState?: string;
 }
 
 export interface LoopShieldInstance {

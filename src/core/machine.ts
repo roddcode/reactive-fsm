@@ -4,14 +4,14 @@ export interface FSMSnapshot {
   state: string;
 }
 
-export interface FSMConfig {
-  initialState: string;
-  states: string[];
-  tools: Record<string, string[]>;
+export interface FSMConfig<S extends string = string> {
+  initialState: S;
+  states: readonly S[];
+  tools: Partial<Record<S, string[]>>;
   loopShield?: LoopShieldConfig;
-  onTransition?: (from: string, to: string) => void;
-  guard?: (from: string, to: string) => boolean;
-  prompts?: Record<string, string>;
+  onTransition?: (from: S, to: S) => void;
+  guard?: (from: S, to: S, context: Record<string, unknown>) => boolean;
+  prompts?: Partial<Record<S, string>>;
   snapshot?: FSMSnapshot;
   context?: Record<string, unknown>;
 }
@@ -32,8 +32,10 @@ export interface FSMInstance extends FSMPublic {
   _setState(state: string): void;
 }
 
-export function createFSM(config: FSMConfig): FSMInstance {
-  const validStates = new Set(config.states);
+export function createFSM<const S extends string = string>(
+  config: FSMConfig<S>,
+): FSMInstance {
+  const validStates = new Set<string>(config.states);
 
   if (!validStates.has(config.initialState)) {
     throw new Error(`Initial state "${config.initialState}" is not in the states list`);
@@ -41,6 +43,10 @@ export function createFSM(config: FSMConfig): FSMInstance {
 
   if (config.snapshot && !validStates.has(config.snapshot.state)) {
     throw new Error(`Snapshot state "${config.snapshot.state}" is not in the states list`);
+  }
+
+  if (config.loopShield?.fallbackState && !validStates.has(config.loopShield.fallbackState)) {
+    throw new Error(`Loop shield fallbackState "${config.loopShield.fallbackState}" is not in the states list`);
   }
 
   let _currentState = config.snapshot?.state ?? config.initialState;
@@ -52,16 +58,22 @@ export function createFSM(config: FSMConfig): FSMInstance {
   );
 
   function getAllowedTools(): string[] {
-    return config.tools[_currentState] ?? [];
+    return (config.tools as Record<string, string[]>)[_currentState] ?? [];
   }
 
   function doTransition(state: string): void {
     const from = _currentState;
-    if (config.guard && !config.guard(from, state)) {
+    if (config.guard && !config.guard(from as S, state as S, _context)) {
       throw new Error(`Guard blocked transition from "${from}" to "${state}"`);
     }
     _currentState = state;
-    config.onTransition?.(from, state);
+    config.onTransition?.(from as S, state as S);
+  }
+
+  function doFallback(state: string): void {
+    const from = _currentState;
+    _currentState = state;
+    config.onTransition?.(from as S, state as S);
   }
 
   return {
@@ -86,6 +98,12 @@ export function createFSM(config: FSMConfig): FSMInstance {
 
     _registerToolCall(): void {
       shield.registerToolCall();
+      if (shield.isLooping() && config.loopShield?.fallbackState) {
+        const fb = config.loopShield.fallbackState;
+        if (validStates.has(fb) && _currentState !== fb) {
+          doFallback(fb);
+        }
+      }
     },
 
     _resetLoopShield(): void {
