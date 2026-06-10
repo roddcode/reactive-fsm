@@ -1,5 +1,6 @@
-import type { FSMPublic, FSMInstance } from '../core/machine';
+import type { FSMPublic } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
+import { createBaseAdapter } from './base';
 
 export interface OpenAIInjectResult {
   tools: unknown[];
@@ -8,7 +9,7 @@ export interface OpenAIInjectResult {
 export interface OpenAIAdapter<TContext = any> {
   inject(): OpenAIInjectResult;
   isLooping(): boolean;
-  registerToolCall(): void;
+  registerToolCall(toolName?: string): void;
   resetLoopShield(): void;
   refreshGate(state: string): void;
 }
@@ -18,28 +19,15 @@ export function createOpenAIAdapter<TContext = any>(
   registry: ToolEntry<TContext>[],
   context: TContext,
 ): OpenAIAdapter<TContext> {
-  const _fsm = fsm as FSMInstance;
+  const base = createBaseAdapter(fsm);
   return {
     inject(): OpenAIInjectResult {
-      const toolMap = buildToolsForGate(_fsm.currentState, context, registry);
+      const toolMap = buildToolsForGate(fsm.currentState, context, registry);
       return { tools: Object.values(toolMap) };
     },
-
-    isLooping(): boolean {
-      return _fsm.isLooping;
-    },
-
-    registerToolCall(): void {
-      _fsm._registerToolCall();
-    },
-
-    resetLoopShield(): void {
-      _fsm._resetLoopShield();
-    },
-
-    refreshGate(state: string): void {
-      _fsm._setState(state);
-      _fsm._resetLoopShield();
-    },
+    isLooping: base.isLooping,
+    registerToolCall: base.registerToolCall,
+    resetLoopShield: base.resetLoopShield,
+    refreshGate: base.refreshGate,
   };
 }

@@ -1,5 +1,6 @@
 import type { FSMPublic, FSMInstance } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
+import { createBaseAdapter } from './base';
 
 export interface VercelStepInfo {
   toolCalls?: Array<{ toolName: string; args?: unknown }>;
@@ -42,6 +43,7 @@ export function createVercelAdapter<TContext = any>(
   context: TContext,
 ): VercelAdapter<TContext> {
   const _fsm = fsm as FSMInstance;
+  const base = createBaseAdapter(fsm);
   const tools: Record<string, unknown> = {};
   let currentGate: string | null = null;
 
@@ -64,7 +66,9 @@ export function createVercelAdapter<TContext = any>(
 
           _fsm._resetLoopShield();
           for (let i = 0; i < consecutiveToolSteps; i++) {
-            _fsm._registerToolCall();
+            const step = steps[steps.length - consecutiveToolSteps + i];
+            const lastName = step?.toolCalls?.[step.toolCalls.length - 1]?.toolName;
+            _fsm._registerToolCall(lastName);
           }
 
           if (_fsm.isLooping) {
@@ -81,9 +85,6 @@ export function createVercelAdapter<TContext = any>(
       };
     },
 
-    refreshGate(state: string): void {
-      _fsm._setState(state);
-      _fsm._resetLoopShield();
-    },
+    refreshGate: base.refreshGate,
   };
 }

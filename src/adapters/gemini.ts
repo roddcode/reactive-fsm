@@ -1,10 +1,11 @@
-import type { FSMPublic, FSMInstance } from '../core/machine';
+import type { FSMPublic } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
+import { createBaseAdapter } from './base';
 
 export interface GeminiAdapter<TContext = any> {
   inject(): { tools: Array<{ functionDeclarations: unknown[] }> };
   isLooping(): boolean;
-  registerToolCall(): void;
+  registerToolCall(toolName?: string): void;
   resetLoopShield(): void;
   refreshGate(state: string): void;
 }
@@ -14,10 +15,10 @@ export function createGeminiAdapter<TContext = any>(
   registry: ToolEntry<TContext>[],
   context: TContext,
 ): GeminiAdapter<TContext> {
-  const _fsm = fsm as FSMInstance;
+  const base = createBaseAdapter(fsm);
   return {
     inject() {
-      const toolMap = buildToolsForGate(_fsm.currentState, context, registry);
+      const toolMap = buildToolsForGate(fsm.currentState, context, registry);
       const declarations: unknown[] = [];
       for (const t of Object.values(toolMap)) {
         const tool = t as Record<string, unknown>;
@@ -29,22 +30,9 @@ export function createGeminiAdapter<TContext = any>(
       }
       return { tools: [{ functionDeclarations: declarations }] };
     },
-
-    isLooping(): boolean {
-      return _fsm.isLooping;
-    },
-
-    registerToolCall(): void {
-      _fsm._registerToolCall();
-    },
-
-    resetLoopShield(): void {
-      _fsm._resetLoopShield();
-    },
-
-    refreshGate(state: string): void {
-      _fsm._setState(state);
-      _fsm._resetLoopShield();
-    },
+    isLooping: base.isLooping,
+    registerToolCall: base.registerToolCall,
+    resetLoopShield: base.resetLoopShield,
+    refreshGate: base.refreshGate,
   };
 }

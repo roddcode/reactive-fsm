@@ -1,6 +1,6 @@
 {
   "name": "reactive-fsm",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Reactive Finite State Machine for AI agent orchestration — zero dependencies core, conditional tool gating, loop shield, adapters for Vercel AI SDK, OpenAI, Anthropic, LangChain, and Google Gemini",
   "type": "module",
   "main": "dist/index.js",

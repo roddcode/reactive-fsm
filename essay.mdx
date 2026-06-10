@@ -1,0 +1,134 @@
+---
+title: "The fourth time I rebuilt the same state machine, I made it a library"
+date: "2026-06-09"
+description: "I built the same FSM four times for four different projects. The fourth version became reactive-fsm — a zero-dependency library for controlling LLM tool access in production."
+---
+
+A patient confirmed a booking for a slot that was already taken. The LLM said "confirmed" while the database said "sold." That was the moment I realized: the model cannot be the source of truth.
+
+## The first three times
+
+I was building SoffIA's core loop. The LLM needed to identify patients, check availability, confirm bookings — but only in that order, and only when the previous step was validated. At any point, the model could hallucinate a tool call that skipped a step. I needed a way to say: "in this state, you can only see these tools."
+
+So I built a state machine. Hardcoded. Tightly coupled to SoffIA's database schema and its specific LLM provider. It worked, but it wasn't reusable. I didn't care — it was a single product.
+
+The second time was a consulting client. Different domain, different LLM, different database. They had the same problem: their agent kept calling tools out of order. I rebuilt the same pattern from scratch. Same logic, different code.
+
+That's when I noticed the pattern. The state machine logic was identical — only the tools and transitions changed. But extracting it would take time, and the client needed delivery, not infrastructure.
+
+The third time broke me. I installed a framework instead of rebuilding. Configured the state machine. Simple enough — until I needed a loop shield. The framework didn't have one. I had to override a core class. The dependency started dictating my architecture.
+
+That's the moment you realize: a framework that doesn't fit your use case costs more than building your own. Not in code — in constraints.
+
+## The fourth time
+
+I opened my old SoffIA code, my client code, and the hacked-together framework override, and I asked: what would this look like if I extracted the common core?
+
+```typescript
+import { createFSM } from "reactive-fsm";
+
+const fsm = createFSM({
+  initialState: "TRIAGE",
+  states: ["TRIAGE", "BOOKING", "DONE"],
+  tools: {
+    TRIAGE: ["check_service", "check_availability"],
+    BOOKING: ["confirm", "invoice"],
+    DONE: [],
+  },
+  loopShield: { enabled: true, maxConsecutiveTools: 3 },
+});
+
+fsm.allowedTools; // ['check_service', 'check_availability']
+fsm.transitionTo("BOOKING");
+fsm.allowedTools; // ['confirm', 'invoice']
+```
+
+I isolated the state machine into a core with zero dependencies. The provider integration became an adapter. The tool schemas became generic. The loop shield and gate refresh became configuration options, not hardcoded logic.
+
+I wrote 86 tests. Mostly edge cases I had debugged at 2 AM in production systems — the kind of failures you only know to test for after they've burned you.
+
+The result is [reactive-fsm](https://github.com/roddcode/reactive-fsm). A TypeScript library that controls LLM tool access via state machines — with zero runtime dependencies, swappable provider adapters, and the loop shield and gate refresh patterns that emerged from two years of production AI systems.
+
+## The guardrail is structural, not textual
+
+The most common failure pattern in LLM-powered systems is the model calling a tool it shouldn't have access to. The standard fix is a better system prompt: "never confirm a booking before identity is verified." But prompts leak. The model finds a path around them.
+
+reactive-fsm's approach is different: the tool doesn't exist in the LLM's context until the state machine says it does. The model cannot call `confirm` during TRIAGE because `confirm` is not in the tools array at that state. There's no prompt to bypass.
+
+```typescript
+// In TRIAGE: only check_service and check_availability exist
+const { tools } = adapter.inject();
+// tools = { check_service: {...}, check_availability: {...} }
+// confirm is absent — the LLM literally cannot call it
+
+fsm.transitionTo("BOOKING");
+// Now confirm appears, check_service disappears
+```
+
+## Gate refresh solved a class of bugs I had accepted as inevitable
+
+In concurrent systems — which every production AI system is — the world changes between the LLM's decision and the tool execution. A patient books a slot while another patient is confirming. A naive state machine confirms both and creates a conflict.
+
+reactive-fsm's approach: validate transitions with a guard, and force fallback when the system detects a loop.
+
+```typescript
+const fsm = createFSM({
+  initialState: "BOOKING",
+  states: ["BOOKING", "CONFIRMED", "UNAVAILABLE"],
+  tools: {
+    BOOKING: ["reserve_slot"],
+    CONFIRMED: ["send_confirmation"],
+    UNAVAILABLE: [],
+  },
+  context: { slotId: "slot-42" },
+  guard: (from, to, ctx) => {
+    if (to === "CONFIRMED") {
+      const available = checkAvailability(ctx.slotId);
+      return available;
+    }
+    return true;
+  },
+  loopShield: {
+    enabled: true,
+    maxConsecutiveTools: 3,
+    fallbackState: "UNAVAILABLE",
+  },
+});
+
+// If the slot is taken: guard blocks CONFIRMED
+// If the LLM loops 3 times: auto-transition to UNAVAILABLE
+```
+
+The guard is evaluated before every transition. The loop shield acts as a circuit breaker. Together they ensure the FSM never confirms a booking that no longer exists, and never burns tokens in an infinite retry loop.
+
+## What ships
+
+The library is MIT. Zero dependencies in the core. TypeScript with `const` generic type inference — `states: ['TRIAGE', 'BOOKING'] as const` gives you autocomplete and compile-time errors on invalid transitions.
+
+Five adapters: Vercel AI SDK, OpenAI, Anthropic, LangChain, Google Gemini. Each one handles provider-specific tool formatting so you don't write translation code.
+
+```typescript
+import { createVercelAdapter } from "reactive-fsm/adapters/vercel-ai";
+
+const adapter = createVercelAdapter(fsm, registry, ctx);
+
+const response = await generateText({
+  model: openai("gpt-4o"),
+  messages,
+  ...adapter.inject(), // { tools, prepareStep }
+});
+```
+
+Snapshot and restore for serverless environments — store `fsm.snapshot()` in your database, hydrate on the next request with `{ snapshot }`. Mermaid diagram generation with `fsm.toMermaid()`. Optional schema validation for tool arguments via `validateWith()` — compatible with Zod, Valibot, and ArkType.
+
+## What this is not
+
+This is not a framework. It doesn't manage prompts, orchestrate multi-agent conversations, or replace LangChain. It does one thing: **control what tools an LLM can call at each step of a conversation, structurally, without relying on prompts.**
+
+If you're building a production AI system that touches money, schedules, or liabilities, you will eventually need a state machine to control what your LLM can touch.
+
+```bash
+pnpm add reactive-fsm
+```
+
+I wrote it because I got tired of fixing the same bug at 2 AM. You can install it and not make the same mistakes I made.

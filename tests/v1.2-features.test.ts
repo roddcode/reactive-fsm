@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createFSM, validateWith, type FSMSnapshot } from '../src/index';
+import { createFSM, validateWith, createLoopShield, type FSMSnapshot } from '../src/index';
 
 describe('onTransition hook', () => {
   it('fires when transitionTo changes state', () => {
@@ -396,5 +396,114 @@ describe('guard with context', () => {
     fsm.context.cartTotal = 150;
     expect(() => fsm.transitionTo('PAYMENT')).not.toThrow();
     expect(fsm.currentState).toBe('PAYMENT');
+  });
+});
+
+describe('loop shield modes', () => {
+  it('repeated mode triggers on same tool N times', () => {
+    const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 3, mode: 'repeated' });
+    shield.registerToolCall('check_slots');
+    shield.registerToolCall('check_slots');
+    shield.registerToolCall('check_slots');
+    expect(shield.isLooping()).toBe(true);
+  });
+
+  it('repeated mode resets on different tool', () => {
+    const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 3, mode: 'repeated' });
+    shield.registerToolCall('check_slots');
+    shield.registerToolCall('check_slots');
+    shield.registerToolCall('reserve'); // diferente
+    expect(shield.isLooping()).toBe(false);
+    shield.registerToolCall('reserve');
+    shield.registerToolCall('reserve'); // 3 of 'reserve'
+    expect(shield.isLooping()).toBe(true);
+  });
+
+  it('consecutive mode ignores tool names', () => {
+    const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 2 });
+    shield.registerToolCall('a');
+    shield.registerToolCall('b');
+    expect(shield.isLooping()).toBe(true);
+  });
+
+  it('onLoop fires with metadata', () => {
+    const onLoop = vi.fn();
+    const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 2, onLoop });
+    shield.registerToolCall();
+    shield.registerToolCall();
+    expect(onLoop).toHaveBeenCalledWith({ consecutiveTools: 2, maxAllowed: 2 });
+  });
+});
+
+describe('currentStateGroup', () => {
+  it('returns group for namespaced state', () => {
+    const fsm = createFSM({
+      initialState: 'SCHEDULING:date' as const,
+      states: ['GREETING', 'SCHEDULING:date', 'SCHEDULING:time', 'SCHEDULING:confirm', 'DONE'] as const,
+      tools: { GREETING: [], 'SCHEDULING:date': [], 'SCHEDULING:time': [], 'SCHEDULING:confirm': [], DONE: [] },
+    });
+    expect(fsm.currentStateGroup).toBe('SCHEDULING');
+    fsm.transitionTo('SCHEDULING:time');
+    expect(fsm.currentStateGroup).toBe('SCHEDULING');
+  });
+
+  it('returns full state when no colon', () => {
+    const fsm = createFSM({
+      initialState: 'GREETING',
+      states: ['GREETING', 'DONE'],
+      tools: { GREETING: [], DONE: [] },
+    });
+    expect(fsm.currentStateGroup).toBe('GREETING');
+  });
+});
+
+describe('transitionToAsync', () => {
+  it('works with sync guard', async () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B'],
+      tools: { A: [], B: [] },
+      guard: () => true,
+    });
+    await fsm.transitionToAsync('B');
+    expect(fsm.currentState).toBe('B');
+  });
+
+  it('works with async guard', async () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B'],
+      tools: { A: [], B: [] },
+      guard: async () => true,
+    });
+    await fsm.transitionToAsync('B');
+    expect(fsm.currentState).toBe('B');
+  });
+
+  it('async guard can use context for DB checks', async () => {
+    const fsm = createFSM({
+      initialState: 'CART',
+      states: ['CART', 'PAYMENT'],
+      tools: { CART: [], PAYMENT: [] },
+      context: { slotId: 'slot-42' },
+      guard: async (_from, to, ctx) => {
+        if (to === 'PAYMENT') {
+          return true; // simulate DB check
+        }
+        return true;
+      },
+    });
+    await fsm.transitionToAsync('PAYMENT');
+    expect(fsm.currentState).toBe('PAYMENT');
+  });
+
+  it('throws when sync transitionTo used with async guard', () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B'],
+      tools: { A: [], B: [] },
+      guard: async () => true,
+    });
+    expect(() => fsm.transitionTo('B')).toThrow('async');
   });
 });

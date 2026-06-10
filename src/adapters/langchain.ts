@@ -1,5 +1,6 @@
-import type { FSMPublic, FSMInstance } from '../core/machine';
+import type { FSMPublic } from '../core/machine';
 import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
+import { createBaseAdapter } from './base';
 
 export interface LangChainFSMWrapper<TContext = any> {
   getTools(): Record<string, unknown>;
@@ -13,23 +14,13 @@ export function wrapWithFSM<TContext = any>(
   registry: ToolEntry<TContext>[],
   context: TContext,
 ): LangChainFSMWrapper<TContext> {
-  const _fsm = fsm as FSMInstance;
+  const base = createBaseAdapter(fsm);
   return {
     getTools() {
-      return buildToolsForGate(_fsm.currentState, context, registry);
+      return buildToolsForGate(fsm.currentState, context, registry);
     },
-
-    shouldStop() {
-      return _fsm.isLooping;
-    },
-
-    onToolCall() {
-      _fsm._registerToolCall();
-    },
-
-    onStateChange(gate: string) {
-      _fsm._setState(gate);
-      _fsm._resetLoopShield();
-    },
+    shouldStop: base.isLooping,
+    onToolCall: base.registerToolCall,
+    onStateChange: base.refreshGate,
   };
 }

@@ -10,7 +10,7 @@ export interface FSMConfig<S extends string = string> {
   tools: Partial<Record<S, string[]>>;
   loopShield?: LoopShieldConfig;
   onTransition?: (from: S, to: S) => void;
-  guard?: (from: S, to: S, context: Record<string, unknown>) => boolean;
+  guard?: (from: S, to: S, context: Record<string, unknown>) => boolean | Promise<boolean>;
   prompts?: Partial<Record<S, string>>;
   snapshot?: FSMSnapshot;
   context?: Record<string, unknown>;
@@ -18,18 +18,21 @@ export interface FSMConfig<S extends string = string> {
 
 export interface FSMPublic {
   readonly currentState: string;
+  readonly currentStateGroup: string;
   readonly allowedTools: string[];
   readonly isLooping: boolean;
   transitionTo(state: string): void;
+  transitionToAsync(state: string): Promise<void>;
   snapshot(): FSMSnapshot;
   toMermaid(): string;
   context: Record<string, unknown>;
 }
 
 export interface FSMInstance extends FSMPublic {
-  _registerToolCall(): void;
+  _registerToolCall(toolName?: string): void;
   _resetLoopShield(): void;
   _setState(state: string): void;
+  _setStateAsync(state: string): Promise<void>;
 }
 
 export function createFSM<const S extends string = string>(
@@ -57,13 +60,37 @@ export function createFSM<const S extends string = string>(
     config.loopShield ?? { enabled: false, maxConsecutiveTools: 3 },
   );
 
+  function getGroup(state: string): string {
+    const idx = state.indexOf(':');
+    return idx === -1 ? state : state.slice(0, idx);
+  }
+
   function getAllowedTools(): string[] {
     return (config.tools as Record<string, string[]>)[_currentState] ?? [];
   }
 
+  async function checkGuard(from: string, to: string): Promise<boolean> {
+    if (!config.guard) return true;
+    const result = config.guard(from as S, to as S, _context);
+    return result instanceof Promise ? await result : result;
+  }
+
+  async function doTransitionAsync(state: string): Promise<void> {
+    const from = _currentState;
+    if (!(await checkGuard(from, state))) {
+      throw new Error(`Guard blocked transition from "${from}" to "${state}"`);
+    }
+    _currentState = state;
+    config.onTransition?.(from as S, state as S);
+  }
+
   function doTransition(state: string): void {
     const from = _currentState;
-    if (config.guard && !config.guard(from as S, state as S, _context)) {
+    const result = config.guard?.(from as S, state as S, _context);
+    if (result instanceof Promise) {
+      throw new Error(`Guard is async. Use transitionToAsync() instead of transitionTo().`);
+    }
+    if (result === false) {
       throw new Error(`Guard blocked transition from "${from}" to "${state}"`);
     }
     _currentState = state;
@@ -81,6 +108,10 @@ export function createFSM<const S extends string = string>(
       return _currentState;
     },
 
+    get currentStateGroup(): string {
+      return getGroup(_currentState);
+    },
+
     get allowedTools(): string[] {
       return getAllowedTools();
     },
@@ -96,8 +127,15 @@ export function createFSM<const S extends string = string>(
       doTransition(state);
     },
 
-    _registerToolCall(): void {
-      shield.registerToolCall();
+    transitionToAsync(state: string): Promise<void> {
+      if (!validStates.has(state)) {
+        throw new Error(`Invalid state "${state}". Valid states: ${config.states.join(', ')}`);
+      }
+      return doTransitionAsync(state);
+    },
+
+    _registerToolCall(toolName?: string): void {
+      shield.registerToolCall(toolName);
       if (shield.isLooping() && config.loopShield?.fallbackState) {
         const fb = config.loopShield.fallbackState;
         if (validStates.has(fb) && _currentState !== fb) {
@@ -115,6 +153,13 @@ export function createFSM<const S extends string = string>(
         throw new Error(`Invalid state "${state}". Valid states: ${config.states.join(', ')}`);
       }
       doTransition(state);
+    },
+
+    _setStateAsync(state: string): Promise<void> {
+      if (!validStates.has(state)) {
+        throw new Error(`Invalid state "${state}". Valid states: ${config.states.join(', ')}`);
+      }
+      return doTransitionAsync(state);
     },
 
     snapshot(): FSMSnapshot {
