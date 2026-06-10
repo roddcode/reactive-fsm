@@ -28,11 +28,10 @@ stateDiagram-v2
 
 ## What it does
 
-- **Tool gating per state.** In `PAYMENT`, the LLM sees only `process_payment` and `cancel_order`. No browsing, no upselling, no hallucinating tools that don't belong.
-- **Loop shield.** Detects when the LLM enters a tool-calling loop and forces it to stop. Configurable threshold. Prevents runaway token costs.
-- **Gate refresh mid-turn.** If a tool execution changes the conversation state (e.g., identity validated → move to booking), tools update immediately without restarting the FSM.
-- **Cross-session resume.** `snapshot()` returns `{ state }`. Store it anywhere. Next serverless invocation picks up where it left off.
-- **5 providers, 1 API.** Vercel AI SDK, OpenAI, Anthropic, LangChain, Google Gemini. Same FSM config, different adapter.
+- **Loop shield.** Detects tool-calling loops — configurable threshold, two modes (`consecutive` any-tool or `repeated` same-tool), optional `onLoop` callback with metadata.
+- **Async guard.** `guard` accepts `Promise<boolean>`. Use `transitionToAsync()` for DB checks, API calls, or any async validation before state change.
+- **State groups.** `STATE:substate` naming convention — `currentStateGroup` returns `'STATE'` for `'STATE:date'`, `'STATE:time'`, `'STATE:confirm'`.
+- **5 providers, 1 API.** Vercel AI SDK, OpenAI, Anthropic, LangChain, Google Gemini. Shared adapter base, zero duplication.
 
 ## Get started
 
@@ -188,20 +187,30 @@ interface FSMConfig {
   initialState: string
   states: string[]
   tools: Record<string, string[]>
-  loopShield?: { enabled: boolean; maxConsecutiveTools: number }
+  loopShield?: {
+    enabled: boolean
+    maxConsecutiveTools: number
+    mode?: 'consecutive' | 'repeated'
+    fallbackState?: string
+    onLoop?: (info: { consecutiveTools: number; maxAllowed: number }) => void
+  }
   onTransition?: (from: string, to: string) => void
-  guard?: (from: string, to: string) => boolean   // veto transitions
-  prompts?: Record<string, string>                 // state → system prompt
-  snapshot?: { state: string }                     // restore from saved state
+  guard?: (from: string, to: string, context: Record<string, unknown>) => boolean | Promise<boolean>
+  prompts?: Record<string, string>
+  snapshot?: { state: string }
+  context?: Record<string, unknown>
 }
 
 interface FSMPublic {
-  currentState: string          // getter
-  allowedTools: string[]        // getter
-  isLooping: boolean            // getter
+  currentState: string
+  currentStateGroup: string       // 'SCHEDULING' for 'SCHEDULING:date'
+  allowedTools: string[]
+  isLooping: boolean
   transitionTo(state): void
+  transitionToAsync(state): Promise<void>   // for async guard
   snapshot(): { state: string }
-  toMermaid(): string           // Mermaid stateDiagram-v2
+  toMermaid(): string
+  context: Record<string, unknown>
 }
 ```
 
