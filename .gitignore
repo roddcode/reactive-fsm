@@ -3,6 +3,7 @@ dist/
 *.tsbuildinfo
 *.tgz
 package-lock.json
+.npmrc
 FEATURES.md
 TASTE.md
 roadmap.md

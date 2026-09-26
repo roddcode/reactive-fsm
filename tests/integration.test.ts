@@ -1,10 +1,10 @@
 /**
- * Validación de Integración — Reactive FSM + Vercel AI SDK Adapter
+ * Integration test: reactive-fsm + Vercel AI SDK adapter
  *
- * Simula un flujo de conversación multi-step completo:
- *   Greeting → Identity capture → Booking → Loop Shield trigger
+ * Simulates a full multi-step conversation flow:
+ *   greeting -> identity capture -> booking -> loop shield trigger
  *
- * No requiere API key de OpenAI. Mockea el comportamiento del LLM.
+ * No OpenAI API key needed; LLM behavior is mocked.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createFSM, buildToolsForGate, createVercelAdapter } from '../src/index';
@@ -16,8 +16,7 @@ interface ChatContext {
   stepCount: number;
 }
 
-// ─── Mock tool builders ──────────────────────────────────────────────────────
-
+// Mock tool builders
 const registry: ToolEntry<ChatContext>[] = [
   {
     name: 'greet_user',
@@ -85,9 +84,7 @@ const registry: ToolEntry<ChatContext>[] = [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Simulador de flujo de conversación (mock del LLM)
-// ─────────────────────────────────────────────────────────────────────────────
+// Conversation flow simulator (LLM mock)
 interface SimulatedStep {
   toolCalls: Array<{ toolName: string; args?: unknown }>;
   toolResults: Array<{ toolName: string; result?: unknown }>;
@@ -119,10 +116,7 @@ function simulateConversation(
   return history;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
 describe('Integration — Conversational Flow', () => {
   const fsm = createFSM({
     initialState: 'GREETING',
@@ -228,7 +222,7 @@ describe('Integration — Loop Shield en flujo multi-step', () => {
     const result = await prepareStep!({
       steps: [
         { toolCalls: [{ toolName: 't1' }] },
-        {}, // paso sin tools — rompe la cadena
+        {}, // a step without tools breaks the chain
         { toolCalls: [{ toolName: 't2' }] },
         { toolCalls: [{ toolName: 't3' }] },
       ],
@@ -259,16 +253,16 @@ describe('Integration — Gate Refresh en flujo real', () => {
     const { tools, prepareStep } = adapter.inject();
     expect(Object.keys(tools).sort()).toEqual(['collect_name', 'validate_dni']);
 
-    // Simular que un tool ejecutado en el paso anterior mutó la DB
+    // Simulate a tool from the previous step mutating the DB
     adapter.refreshGate('BOOKING');
 
-    // prepareStep debe detectar el cambio de gate y actualizar tools in-place
+    // prepareStep must detect the gate change and refresh tools in place
     await prepareStep!({
       steps: [],
       stepNumber: 1,
     });
 
-    // El objeto tools mutó — ahora contiene tools de BOOKING
+    // The tools object mutated: it now carries BOOKING tools
     expect(Object.keys(tools).sort()).toEqual(['check_availability', 'reserve_slot']);
   });
 });

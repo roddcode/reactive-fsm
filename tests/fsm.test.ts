@@ -5,8 +5,7 @@ import { createLoopShield } from '../src/core/loop-shield';
 import { createVercelAdapter } from '../src/adapters/vercel-ai';
 import type { ToolEntry } from '../src/core/tool-gating';
 
-// ─── Test 1: State Transition ────────────────────────────────────────────────
-
+// Test 1: State Transition
 describe('createFSM — State Transition', () => {
   const fsm = createFSM({
     initialState: 'IDENTITY',
@@ -43,8 +42,7 @@ describe('createFSM — State Transition', () => {
   });
 });
 
-// ─── Test 2: Conditional Gating ──────────────────────────────────────────────
-
+// Test 2: Conditional Gating
 describe('buildToolsForGate — Conditional Gating', () => {
   interface MyContext {
     isAdmin: boolean;
@@ -98,8 +96,7 @@ describe('buildToolsForGate — Conditional Gating', () => {
   });
 });
 
-// ─── Test 3: Loop Shield ─────────────────────────────────────────────────────
-
+// Test 3: Loop Shield
 describe('Loop Shield', () => {
   it('should not trigger when under maxConsecutiveTools', () => {
     const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 3 });
@@ -159,8 +156,7 @@ describe('Loop Shield', () => {
   });
 });
 
-// ─── Test 4: Loop Shield with Adapter ────────────────────────────────────────
-
+// Test 4: Loop Shield with Adapter
 describe('createVercelAdapter — Loop Shield via prepareStep', () => {
   interface Ctx {
     contactId: string;
@@ -253,8 +249,7 @@ describe('createVercelAdapter — Loop Shield via prepareStep', () => {
   });
 });
 
-// ─── Test 5: Gate Refresh ────────────────────────────────────────────────────
-
+// Test 5: Gate Refresh
 describe('Gate Refresh', () => {
   it('should update allowedTools when the gate is refreshed externally', () => {
     const fsm = createFSM({
@@ -275,8 +270,7 @@ describe('Gate Refresh', () => {
   });
 });
 
-// ─── Test 6: buildToolsForGate with empty registry ───────────────────────────
-
+// Test 6: buildToolsForGate with empty registry
 describe('buildToolsForGate — edge cases', () => {
   it('should return empty object for gate with no matching tools', () => {
     const registry: ToolEntry<{}>[] = [

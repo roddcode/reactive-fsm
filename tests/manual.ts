@@ -1,6 +1,6 @@
 /**
- * Validación Manual — Reactive FSM Core
- * Ejecutar con: npx tsx tests/manual.ts
+ * Manual validation: reactive-fsm core.
+ * Run with: pnpm exec tsx tests/manual.ts
  */
 import { createFSM } from '../src/core/machine';
 import { buildToolsForGate } from '../src/core/tool-gating';
@@ -12,10 +12,10 @@ let failed = 0;
 
 function assert(condition: boolean, label: string): void {
   if (condition) {
-    console.log(`  ✅ ${label}`);
+    console.log(`  ok   ${label}`);
     passed++;
   } else {
-    console.error(`  ❌ ${label}`);
+    console.error(`  FAIL ${label}`);
     failed++;
   }
 }
@@ -23,18 +23,16 @@ function assert(condition: boolean, label: string): void {
 function assertThrows(fn: () => void, label: string): void {
   try {
     fn();
-    console.error(`  ❌ ${label} — esperaba error, no lanzó`);
+    console.error(`  FAIL ${label} (expected an error, none thrown)`);
     failed++;
   } catch {
-    console.log(`  ✅ ${label} — error lanzado correctamente`);
+    console.log(`  ok   ${label}`);
     passed++;
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 1 — Estado inicial y tools
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 1: Core — Estado inicial y transiciones ──');
+// Test 1: initial state and tools
+console.log('\nTest 1: initial state and tools');
 
 const fsm = createFSM({
   initialState: 'IDENTITY',
@@ -47,47 +45,41 @@ const fsm = createFSM({
   loopShield: { enabled: true, maxConsecutiveTools: 3 },
 });
 
-assert(fsm.currentState === 'IDENTITY', 'Estado inicial es IDENTITY');
-assert(fsm.allowedTools.length === 2, '2 tools disponibles en IDENTITY');
-assert(fsm.allowedTools.includes('validate_dni'), 'validate_dni está disponible');
-assert(fsm.allowedTools.includes('check_patient'), 'check_patient está disponible');
+assert(fsm.currentState === 'IDENTITY', 'initial state is IDENTITY');
+assert(fsm.allowedTools.length === 2, 'two tools available in IDENTITY');
+assert(fsm.allowedTools.includes('validate_dni'), 'validate_dni is available');
+assert(fsm.allowedTools.includes('check_patient'), 'check_patient is available');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 2 — Transición cambia tools
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 2: Transición cambia allowedTools ──');
+// Test 2: transition changes tools
+console.log('\nTest 2: transition changes allowedTools');
 
 fsm.transitionTo('BOOKING');
-assert(fsm.currentState === 'BOOKING', 'Estado cambió a BOOKING');
-assert(fsm.allowedTools.length === 2, '2 tools disponibles en BOOKING');
-assert(!fsm.allowedTools.includes('validate_dni'), 'validate_dni NO está en BOOKING');
-assert(fsm.allowedTools.includes('check_availability'), 'check_availability sí está');
-assert(fsm.allowedTools.includes('reserve_slot'), 'reserve_slot sí está');
+assert(fsm.currentState === 'BOOKING', 'state changed to BOOKING');
+assert(fsm.allowedTools.length === 2, 'two tools available in BOOKING');
+assert(!fsm.allowedTools.includes('validate_dni'), 'validate_dni is gone in BOOKING');
+assert(fsm.allowedTools.includes('check_availability'), 'check_availability is available');
+assert(fsm.allowedTools.includes('reserve_slot'), 'reserve_slot is available');
 
 fsm.transitionTo('PAYMENT');
-assert(fsm.currentState === 'PAYMENT', 'Estado cambió a PAYMENT');
-assert(!fsm.allowedTools.includes('check_availability'), 'check_availability NO está en PAYMENT');
-assert(fsm.allowedTools.includes('process_payment'), 'process_payment sí está');
+assert(fsm.currentState === 'PAYMENT', 'state changed to PAYMENT');
+assert(!fsm.allowedTools.includes('check_availability'), 'check_availability is gone in PAYMENT');
+assert(fsm.allowedTools.includes('process_payment'), 'process_payment is available');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 3 — Estado inválido lanza error
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 3: Estado inválido ──');
+// Test 3: invalid state throws
+console.log('\nTest 3: invalid state throws');
 
 assertThrows(
   () => fsm.transitionTo('NONEXISTENT' as any),
-  'transitionTo a estado inválido lanza error',
+  'transitionTo with an invalid state throws',
 );
 
 assertThrows(
   () => fsm._setState('NONEXISTENT' as any),
-  '_setState a estado inválido lanza error',
+  '_setState with an invalid state throws',
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 4 — Loop Shield
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 4: Loop Shield ──');
+// Test 4: loop shield
+console.log('\nTest 4: loop shield');
 
 const fsmLoop = createFSM({
   initialState: 'A',
@@ -96,24 +88,22 @@ const fsmLoop = createFSM({
   loopShield: { enabled: true, maxConsecutiveTools: 3 },
 });
 
-assert(!fsmLoop.isLooping, 'Loop shield inactivo al inicio');
+assert(!fsmLoop.isLooping, 'loop shield idle at the start');
 
 fsmLoop._registerToolCall(); // 1
-assert(!fsmLoop.isLooping, '1 tool call → no hay loop');
+assert(!fsmLoop.isLooping, 'one tool call is not a loop');
 
 fsmLoop._registerToolCall(); // 2
-assert(!fsmLoop.isLooping, '2 tool calls → no hay loop');
+assert(!fsmLoop.isLooping, 'two tool calls are not a loop');
 
 fsmLoop._registerToolCall(); // 3
-assert(fsmLoop.isLooping, '3 tool calls → LOOP DETECTADO (maxConsecutiveTools=3)');
+assert(fsmLoop.isLooping, 'three tool calls trigger the loop (maxConsecutiveTools=3)');
 
 fsmLoop._resetLoopShield();
-assert(!fsmLoop.isLooping, 'Después de reset → no hay loop');
+assert(!fsmLoop.isLooping, 'reset clears the loop');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 5 — Loop Shield deshabilitado
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 5: Loop Shield deshabilitado ──');
+// Test 5: loop shield disabled
+console.log('\nTest 5: loop shield disabled');
 
 const fsmNoLoop = createFSM({
   initialState: 'A',
@@ -126,12 +116,10 @@ fsmNoLoop._registerToolCall();
 fsmNoLoop._registerToolCall();
 fsmNoLoop._registerToolCall();
 fsmNoLoop._registerToolCall();
-assert(!fsmNoLoop.isLooping, 'Loop shield deshabilitado nunca reporta loop');
+assert(!fsmNoLoop.isLooping, 'a disabled loop shield never reports looping');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 6 — Tool Gating con condiciones
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 6: Tool Gating con condiciones ──');
+// Test 6: tool gating with conditions
+console.log('\nTest 6: tool gating with conditions');
 
 interface Ctx { role: 'user' | 'admin' }
 const registry: ToolEntry<Ctx>[] = [
@@ -149,18 +137,16 @@ const registry: ToolEntry<Ctx>[] = [
 ];
 
 const userTools = buildToolsForGate('IDENTITY', { role: 'user' }, registry);
-assert(Object.keys(userTools).length === 1, 'Usuario normal: solo 1 tool');
-assert('public_tool' in userTools, 'Usuario normal tiene public_tool');
-assert(!('admin_tool' in userTools), 'Usuario normal NO tiene admin_tool');
+assert(Object.keys(userTools).length === 1, 'regular user gets one tool');
+assert('public_tool' in userTools, 'regular user gets public_tool');
+assert(!('admin_tool' in userTools), 'regular user does not get admin_tool');
 
 const adminTools = buildToolsForGate('IDENTITY', { role: 'admin' }, registry);
-assert(Object.keys(adminTools).length === 2, 'Admin: 2 tools');
-assert('admin_tool' in adminTools, 'Admin tiene admin_tool');
+assert(Object.keys(adminTools).length === 2, 'admin gets two tools');
+assert('admin_tool' in adminTools, 'admin gets admin_tool');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 7 — Build tools llama a build() con el contexto
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 7: build() recibe el contexto ──');
+// Test 7: build() receives the context
+console.log('\nTest 7: build() receives the context');
 
 let capturedCtx: any = null;
 const spyRegistry: ToolEntry<{ x: number }>[] = [
@@ -175,29 +161,22 @@ const spyRegistry: ToolEntry<{ x: number }>[] = [
 ];
 
 const result = buildToolsForGate('BOOKING', { x: 42 }, spyRegistry);
-assert(capturedCtx !== null, 'build() fue llamado');
-assert((capturedCtx as any).x === 42, 'build() recibió el contexto correcto');
-assert((result as any).spy.value === 42, 'El tool construido usa el contexto');
+assert(capturedCtx !== null, 'build() was called');
+assert((capturedCtx as any).x === 42, 'build() received the right context');
+assert((result as any).spy.value === 42, 'the built tool carries the context');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRUEBA 8 — LoopShield standalone
-// ─────────────────────────────────────────────────────────────────────────────
-console.log('\n── Prueba 8: LoopShield standalone ──');
+// Test 8: loop shield standalone
+console.log('\nTest 8: loop shield standalone');
 
 const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 2 });
-assert(!shield.isLooping(), 'Recién creado → no looping');
+assert(!shield.isLooping(), 'fresh shield is not looping');
 shield.registerToolCall();
 shield.registerToolCall();
-assert(shield.isLooping(), '2 calls con max=2 → looping');
+assert(shield.isLooping(), 'two calls with max=2 report looping');
 shield.reset();
-assert(!shield.isLooping(), 'Reset → no looping');
+assert(!shield.isLooping(), 'reset clears it');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RESULTADO
-// ─────────────────────────────────────────────────────────────────────────────
-console.log(`\n${'═'.repeat(50)}`);
-console.log(`  Pasaron: ${passed}  |  Fallaron: ${failed}`);
-console.log(`${'═'.repeat(50)}\n`);
+console.log(`\nPassed: ${passed}  Failed: ${failed}\n`);
 
 if (failed > 0) {
   process.exit(1);

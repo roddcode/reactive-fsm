@@ -1,8 +1,10 @@
 {
   "name": "reactive-fsm",
   "version": "1.4.0",
-  "description": "Reactive Finite State Machine for AI agent orchestration — zero dependencies core, conditional tool gating, loop shield, adapters for Vercel AI SDK, OpenAI, Anthropic, LangChain, and Google Gemini",
+  "description": "Deterministic control for AI agent tool calling: gate tools per conversation state, stop loops before they burn the turn. Zero-dependency core, adapters for 5 providers.",
   "type": "module",
+  "sideEffects": false,
+  "packageManager": "pnpm@11.1.3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -40,7 +42,8 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "pnpm build && pnpm test"
+    "prepublishOnly": "pnpm build && pnpm test",
+    "validate:package": "publint && attw --pack . --profile esm-only"
   },
   "keywords": [
     "fsm",
@@ -53,11 +56,11 @@
     "gemini",
     "tool-gating"
   ],
-  "author": "Alejandro Alvarado <roddcode.dev@gmail.com>",
+  "author": "Alejandro Alvarado (roddcode) <roddcode.dev@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/roddcode/reactive-fsm"
+    "url": "git+https://github.com/roddcode/reactive-fsm.git"
   },
   "bugs": {
     "url": "https://github.com/roddcode/reactive-fsm/issues"
@@ -67,6 +70,8 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "publint": "^0.3.24",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0",
     "vitest": "^4.1.0"

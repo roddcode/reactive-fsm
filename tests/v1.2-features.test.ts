@@ -120,7 +120,7 @@ describe('ToolEntry.schema field', () => {
       build: () => ({}),
       schema,
     };
-    // TypeScript should not error — schema is optional
+    // TypeScript should not error: schema is optional
     expect(entry.schema).toBe(schema);
   });
 });
@@ -412,7 +412,7 @@ describe('loop shield modes', () => {
     const shield = createLoopShield({ enabled: true, maxConsecutiveTools: 3, mode: 'repeated' });
     shield.registerToolCall('check_slots');
     shield.registerToolCall('check_slots');
-    shield.registerToolCall('reserve'); // diferente
+    shield.registerToolCall('reserve'); // different
     expect(shield.isLooping()).toBe(false);
     shield.registerToolCall('reserve');
     shield.registerToolCall('reserve'); // 3 of 'reserve'

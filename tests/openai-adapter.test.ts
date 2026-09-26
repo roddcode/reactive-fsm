@@ -147,7 +147,7 @@ describe('OpenAI Adapter — Loop Shield', () => {
   });
 
   it('reporta loop con 3 tool calls (maxConsecutiveTools=3)', () => {
-    adapter.registerToolCall(); // tercera
+    adapter.registerToolCall(); // third
     expect(adapter.isLooping()).toBe(true);
   });
 
@@ -192,41 +192,41 @@ describe('OpenAI Adapter — Flujo conversacional simulado', () => {
       role: 'user',
     });
 
-    // Turno 1: IDENTITY gate → validar DNI
+    // Turn 1: IDENTITY gate, validate the DNI
     {
       const { tools } = adapter.inject();
       const names = tools.map((t: any) => t.function.name);
       expect(names).toEqual(['validate_dni']);
 
-      // Simular que el LLM llamó validate_dni
+      // Simulate the LLM calling validate_dni
       adapter.registerToolCall();
       expect(adapter.isLooping()).toBe(false);
 
-      // La tool mutó el estado en DB → refreshGate
+      // The tool mutated DB state, so refreshGate runs
       adapter.refreshGate('BOOKING');
     }
 
-    // Turno 2: BOOKING gate → tools de reserva
+    // Turn 2: BOOKING gate, reservation tools
     {
       const { tools } = adapter.inject();
       const names = tools.map((t: any) => t.function.name).sort();
       expect(names).toEqual(['check_availability', 'reserve_slot', 'validate_dni']);
 
-      // Simular que el LLM llamó check_availability, reserve_slot, y reintentó
-      adapter.registerToolCall(); // 1 (shield reseteó en refreshGate)
+      // Simulate the LLM calling check_availability, reserve_slot and retrying
+      adapter.registerToolCall(); // 1 (shield reset by refreshGate)
       adapter.registerToolCall(); // 2
-      adapter.registerToolCall(); // 3 → LOOP!
+      adapter.registerToolCall(); // 3 -> loop
       expect(adapter.isLooping()).toBe(true);
 
-      // El consumidor ve isLooping=true y setea tool_choice:'none'
+      // The consumer sees isLooping=true and sets tool_choice:'none'
     }
 
-    // Turno 3: Sin tools (tool_choice:'none') → respuesta final
+    // Turn 3: no tools (tool_choice:'none'), final answer
     {
-      // Verificamos que el gate sigue siendo BOOKING
+      // The gate is still BOOKING
       fsm.transitionTo('BOOKING');
       const { tools } = adapter.inject();
-      expect(tools.length).toBeGreaterThan(0); // tools siguen definidas, pero el consumidor no las usa
+      expect(tools.length).toBeGreaterThan(0); // tools stay defined, but the consumer does not use them
     }
   });
 });

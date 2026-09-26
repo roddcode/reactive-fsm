@@ -1,9 +1,12 @@
 # reactive-fsm
 
 [![npm](https://img.shields.io/npm/v/reactive-fsm)](https://www.npmjs.com/package/reactive-fsm)
+[![CI](https://github.com/roddcode/reactive-fsm/actions/workflows/ci.yml/badge.svg)](https://github.com/roddcode/reactive-fsm/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/reactive-fsm)](https://github.com/roddcode/reactive-fsm/blob/main/LICENSE)
 
 **Deterministic control for AI agents with tool calling.** Define what tools an LLM can call at each step of a conversation. Zero dependencies. TypeScript.
+
+LLMs call tools in loops, in the wrong order, or before the data exists. reactive-fsm gates which tools exist in each state of the conversation, so the model can only move the flow forward.
 
 ```mermaid
 stateDiagram-v2
@@ -28,16 +31,18 @@ stateDiagram-v2
 
 ## What it does
 
-- **Loop shield.** Detects tool-calling loops — configurable threshold, two modes (`consecutive` any-tool or `repeated` same-tool), optional `onLoop` callback with metadata.
-- **Async guard.** `guard` accepts `Promise<boolean>`. Use `transitionToAsync()` for DB checks, API calls, or any async validation before state change.
-- **State groups.** `STATE:substate` naming convention — `currentStateGroup` returns `'STATE'` for `'STATE:date'`, `'STATE:time'`, `'STATE:confirm'`.
+- **Loop shield.** Detects tool-calling loops: configurable threshold, two modes (`consecutive` any-tool or `repeated` same-tool), optional `onLoop` callback with metadata.
+- **Async guard.** `guard` accepts `Promise<boolean>`. Use `transitionToAsync()` for DB checks, API calls, or any async validation before a state change.
+- **State groups.** `STATE:substate` naming convention. `currentStateGroup` returns `'STATE'` for `'STATE:date'`, `'STATE:time'`, `'STATE:confirm'`.
 - **5 providers, 1 API.** Vercel AI SDK, OpenAI, Anthropic, LangChain, Google Gemini. Shared adapter base, zero duplication.
 
-## Get started
+## Quickstart
 
 ```bash
-pnpm add reactive-fsm
+npm install reactive-fsm
 ```
+
+Requires Node 18+.
 
 ```typescript
 import { createFSM } from 'reactive-fsm'
@@ -152,7 +157,7 @@ const support = createFSM({
 })
 ```
 
-Loop shield triggers after 3 failed fix attempts. `ESCALATION` has exactly one tool. The bot cannot stay in the loop — it must escalate.
+Loop shield triggers after 3 failed fix attempts. `ESCALATION` has exactly one tool. The bot cannot stay in the loop; it must escalate.
 
 ## Adapters
 
@@ -171,14 +176,11 @@ All adapters share the same pattern: build an FSM once, pass it to any adapter, 
 | | reactive-fsm | LangGraph |
 |---|---|---|
 | Dependencies | 0 (core) | LangChain + sub-dependencies |
-| Bundle size | ~7 KB | ~5 MB |
 | Define a 3-state FSM | 5 lines | 30+ lines |
 | Tool gating per state | Declarative (`tools: { ... }`) | Manual (`route_tools(state)`) |
 | Loop shield | Built-in | Not built-in |
 | Gate refresh mid-turn | Automatic | Manual |
 | Providers | Any (5 adapters) | LangChain ecosystem |
-
-[Full migration guide →](#) _(coming soon)_
 
 ## API
 
@@ -230,17 +232,21 @@ validateWith(schema, args): { ok, data } | { ok, error }
 ## Architecture
 
 ```
-src/core/           — zero npm dependencies
-  machine.ts        createFSM()
-  tool-gating.ts    buildToolsForGate(), validateWith()
-  loop-shield.ts    createLoopShield()
+src/core/            zero npm dependencies
+  machine.ts         createFSM()
+  tool-gating.ts     buildToolsForGate(), validateWith()
+  loop-shield.ts     createLoopShield()
 
-src/adapters/       — optional peer dependencies
-  vercel-ai.ts      createVercelAdapter()
-  openai.ts         createOpenAIAdapter()
-  anthropic.ts      createAnthropicAdapter()
-  langchain.ts      wrapWithFSM()
-  gemini.ts         createGeminiAdapter()
+src/adapters/        optional peer dependencies
+  vercel-ai.ts       createVercelAdapter()
+  openai.ts          createOpenAIAdapter()
+  anthropic.ts       createAnthropicAdapter()
+  langchain.ts       wrapWithFSM()
+  gemini.ts          createGeminiAdapter()
 ```
 
 MIT · [GitHub](https://github.com/roddcode/reactive-fsm) · [Issues](https://github.com/roddcode/reactive-fsm/issues)
+
+---
+
+Built by [roddcode](https://roddcode.com): I build AI systems that don't fail when money is at stake. [Hablemos 30 minutos](https://roddcode.com) · [LinkedIn](https://linkedin.com/in/alejandro-alvarado-roddcode)
