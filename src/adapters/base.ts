@@ -1,4 +1,4 @@
-import type { FSMPublic, FSMInstance } from '../core/machine';
+import type { FSMPublic, FSMInstance } from '../core/machine.js';
 
 export interface BaseAdapter {
   isLooping(): boolean;

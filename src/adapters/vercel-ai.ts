@@ -1,6 +1,6 @@
-import type { FSMPublic, FSMInstance } from '../core/machine';
-import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
-import { createBaseAdapter } from './base';
+import type { FSMPublic, FSMInstance } from '../core/machine.js';
+import { buildToolsForGate, type ToolEntry } from '../core/tool-gating.js';
+import { createBaseAdapter } from './base.js';
 
 export interface VercelStepInfo {
   toolCalls?: Array<{ toolName: string; args?: unknown }>;

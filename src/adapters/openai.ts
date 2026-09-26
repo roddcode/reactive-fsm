@@ -1,6 +1,6 @@
-import type { FSMPublic } from '../core/machine';
-import { buildToolsForGate, type ToolEntry } from '../core/tool-gating';
-import { createBaseAdapter } from './base';
+import type { FSMPublic } from '../core/machine.js';
+import { buildToolsForGate, type ToolEntry } from '../core/tool-gating.js';
+import { createBaseAdapter } from './base.js';
 
 export interface OpenAIInjectResult {
   tools: unknown[];

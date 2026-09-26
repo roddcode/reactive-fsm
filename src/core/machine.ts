@@ -1,4 +1,4 @@
-import { createLoopShield, type LoopShieldConfig } from './loop-shield';
+import { createLoopShield, type LoopShieldConfig } from './loop-shield.js';
 
 export interface FSMSnapshot {
   state: string;
