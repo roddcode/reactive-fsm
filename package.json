@@ -1,6 +1,6 @@
 {
   "name": "reactive-fsm",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Deterministic control for AI agent tool calling: gate tools per conversation state, stop loops before they burn the turn. Zero-dependency core, adapters for 5 providers.",
   "type": "module",
   "sideEffects": false,
