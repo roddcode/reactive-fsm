@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2026-11-13
+
+### Added
+
+- VitePress documentation site in `site/` with a guide, native comparison, limitations and FAQ.
+- Runnable examples in `examples/ai-sdk-7` and `examples/native-ai-sdk`.
+- `SECURITY.md`, `CONTRIBUTING.md`, Dependabot configuration and repository metadata notes.
+- Docs and examples workflows for GitHub Pages and package-consuming examples.
+
+### Changed
+
+- README repositioned around state-scoped tool availability, with explicit limits, FAQ and links to the docs and examples.
+- GitHub/npm metadata and keywords aligned with the tool-gating niche.
+- The Vercel adapter is described as maintained and contract-tested, not “official”; it is not affiliated with Vercel.
+- Version references updated to `2.x`; the misleading `toMermaid()` diagram was removed from the README.
+- Incomplete provider examples and `prompts` examples were removed or clarified.
+
+### Notes
+
+- No runtime changes.
+- `2.0.1` is published. `2.0.2` is prepared for approval; it is not published automatically.
+
 ## [2.0.1] - 2026-11-13
 
 ### Fixed

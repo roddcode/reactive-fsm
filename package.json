@@ -1,7 +1,7 @@
 {
   "name": "reactive-fsm",
-  "version": "2.0.1",
-  "description": "State-scoped tool availability and tool budgets for TypeScript AI agents. Zero-dependency core, official Vercel AI SDK 7 adapter.",
+  "version": "2.0.2",
+  "description": "State-scoped tool availability and tool budgets for TypeScript AI agents. Zero-dependency core, maintained Vercel AI SDK 7 adapter.",
   "type": "module",
   "sideEffects": false,
   "packageManager": "pnpm@10.18.0",
@@ -43,19 +43,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.tests.json",
+    "docs:dev": "vitepress dev site",
+    "docs:build": "vitepress build site",
+    "docs:preview": "vitepress preview site",
     "prepublishOnly": "pnpm build && pnpm test && pnpm typecheck && pnpm validate:package",
     "validate:package": "publint && attw --pack . --profile esm-only"
   },
   "keywords": [
-    "fsm",
-    "finite-state-machine",
     "ai-agents",
+    "tool-calling",
     "vercel-ai-sdk",
-    "openai",
-    "anthropic",
-    "langchain",
-    "gemini",
-    "tool-gating"
+    "ai-sdk",
+    "llm",
+    "tool-gating",
+    "state-machine",
+    "typescript",
+    "agent-tools",
+    "loop-prevention"
   ],
   "author": "Alejandro Alvarado (roddcode) <roddcode.dev@gmail.com>",
   "license": "MIT",
@@ -66,7 +70,7 @@
   "bugs": {
     "url": "https://github.com/roddcode/reactive-fsm/issues"
   },
-  "homepage": "https://github.com/roddcode/reactive-fsm#readme",
+  "homepage": "https://roddcode.github.io/reactive-fsm/",
   "engines": {
     "node": ">=20"
   },
@@ -76,6 +80,7 @@
     "publint": "^0.3.24",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.0",
     "zod": "^4.6.7"
   }
