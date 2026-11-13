@@ -1,7 +1,7 @@
 import { createLoopShield, type LoopShieldConfig } from './loop-shield.js';
 
-export interface FSMSnapshot {
-  state: string;
+export interface FSMSnapshot<S extends string = string> {
+  state: S;
 }
 
 export interface FSMConfig<S extends string = string> {
@@ -12,32 +12,32 @@ export interface FSMConfig<S extends string = string> {
   onTransition?: (from: S, to: S) => void;
   guard?: (from: S, to: S, context: Record<string, unknown>) => boolean | Promise<boolean>;
   prompts?: Partial<Record<S, string>>;
-  snapshot?: FSMSnapshot;
+  snapshot?: FSMSnapshot<S>;
   context?: Record<string, unknown>;
 }
 
-export interface FSMPublic {
-  readonly currentState: string;
+export interface FSMPublic<S extends string = string> {
+  readonly currentState: S;
   readonly currentStateGroup: string;
   readonly allowedTools: string[];
   readonly isLooping: boolean;
-  transitionTo(state: string): void;
-  transitionToAsync(state: string): Promise<void>;
-  snapshot(): FSMSnapshot;
+  transitionTo(state: S): void;
+  transitionToAsync(state: S): Promise<void>;
+  snapshot(): FSMSnapshot<S>;
   toMermaid(): string;
   context: Record<string, unknown>;
 }
 
-export interface FSMInstance extends FSMPublic {
+export interface FSMInstance<S extends string = string> extends FSMPublic<S> {
   _registerToolCall(toolName?: string): void;
   _resetLoopShield(): void;
-  _setState(state: string): void;
-  _setStateAsync(state: string): Promise<void>;
+  _setState(state: S): void;
+  _setStateAsync(state: S): Promise<void>;
 }
 
 export function createFSM<const S extends string = string>(
   config: FSMConfig<S>,
-): FSMInstance {
+): FSMPublic<S> {
   const validStates = new Set<string>(config.states);
 
   if (!validStates.has(config.initialState)) {
@@ -52,7 +52,7 @@ export function createFSM<const S extends string = string>(
     throw new Error(`Loop shield fallbackState "${config.loopShield.fallbackState}" is not in the states list`);
   }
 
-  let _currentState = config.snapshot?.state ?? config.initialState;
+  let _currentState: string = config.snapshot?.state ?? config.initialState;
   let _revision = 0;
 
   const _context: Record<string, unknown> = config.context ? { ...config.context } : {};
@@ -115,9 +115,9 @@ export function createFSM<const S extends string = string>(
     config.onTransition?.(from as S, state as S);
   }
 
-  return {
-    get currentState(): string {
-      return _currentState;
+  const instance: FSMInstance<S> = {
+    get currentState(): S {
+      return _currentState as S;
     },
 
     get currentStateGroup(): string {
@@ -175,8 +175,8 @@ export function createFSM<const S extends string = string>(
       return doTransitionAsync(state);
     },
 
-    snapshot(): FSMSnapshot {
-      return { state: _currentState };
+    snapshot(): FSMSnapshot<S> {
+      return { state: _currentState as S };
     },
 
     toMermaid(): string {
@@ -195,4 +195,6 @@ export function createFSM<const S extends string = string>(
 
     context: _context,
   };
+
+  return instance;
 }

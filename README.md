@@ -49,7 +49,7 @@ import { createFSM } from 'reactive-fsm'
 
 const fsm = createFSM({
   initialState: 'IDENTITY',
-  states: ['IDENTITY', 'BOOKING', 'PAYMENT'],
+  states: ['IDENTITY', 'BOOKING', 'PAYMENT'] as const,
   tools: {
     IDENTITY: ['validate_dni'],
     BOOKING: ['check_availability', 'reserve_slot'],
@@ -79,7 +79,7 @@ interface Ctx {
 
 const fsm = createFSM({
   initialState: 'IDENTITY',
-  states: ['IDENTITY', 'BOOKING'],
+  states: ['IDENTITY', 'BOOKING'] as const,
   tools: {
     IDENTITY: ['validate_dni'],
     BOOKING: ['check_availability'],
@@ -231,36 +231,38 @@ reactive-fsm is a small policy layer, not an agent runtime or a full statechart 
 ## API
 
 ```typescript
-interface FSMConfig {
-  initialState: string
-  states: string[]
-  tools: Record<string, string[]>
+interface FSMConfig<S extends string = string> {
+  initialState: S
+  states: readonly S[]
+  tools: Partial<Record<S, string[]>>
   loopShield?: {
     enabled: boolean
     maxConsecutiveTools: number
     mode?: 'consecutive' | 'repeated'
-    fallbackState?: string
+    fallbackState?: S
     onLoop?: (info: { consecutiveTools: number; maxAllowed: number }) => void
   }
-  onTransition?: (from: string, to: string) => void
-  guard?: (from: string, to: string, context: Record<string, unknown>) => boolean | Promise<boolean>
-  prompts?: Record<string, string>
-  snapshot?: { state: string }
+  onTransition?: (from: S, to: S) => void
+  guard?: (from: S, to: S, context: Record<string, unknown>) => boolean | Promise<boolean>
+  prompts?: Partial<Record<S, string>>
+  snapshot?: { state: S }
   context?: Record<string, unknown>
 }
 
-interface FSMPublic {
-  currentState: string
+interface FSMPublic<S extends string = string> {
+  currentState: S
   currentStateGroup: string       // 'SCHEDULING' for 'SCHEDULING:date'
   allowedTools: string[]
   isLooping: boolean
-  transitionTo(state): void
-  transitionToAsync(state): Promise<void>   // for async guard
-  snapshot(): { state: string }
+  transitionTo(state: S): void
+  transitionToAsync(state: S): Promise<void>   // for async guard
+  snapshot(): { state: S }
   toMermaid(): string
   context: Record<string, unknown>
 }
 ```
+
+Usa `as const` en `states` para conservar la unión literal de estados; sin eso, `S` se widen a `string`.
 
 ```typescript
 interface ToolEntry<TContext = any> {
@@ -283,7 +285,7 @@ src/core/            zero npm dependencies
   tool-gating.ts     buildToolsForGate(), validateWith()
   loop-shield.ts     createLoopShield()
 
-src/adapters/        optional peer dependencies
+src/adapters/        provider-specific formatters
   vercel-ai.ts       createVercelAdapter()
   openai.ts          createOpenAIAdapter()
   anthropic.ts       createAnthropicAdapter()
