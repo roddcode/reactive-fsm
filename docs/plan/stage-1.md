@@ -1,9 +1,11 @@
-# Stage 1 — v2.0.0 Stabilization + quality
+# Stage 1 — v2.0.1 Stabilization + quality
 
 > Ejecución detallada de la Etapa 1 del [`ROADMAP.md`](../../ROADMAP.md). Evidencia base: [`docs/audits/2026-11-12-v1.4.1.md`](../audits/2026-11-12-v1.4.1.md) y [`checkpoint P0`](../audits/2026-11-13-v1.5.0-checkpoint.md). Decisión de release: [`ADR-0002`](../decisions/0002-release-2.0.0-scope.md).
+>
+> `2.0.0` quedó etiquetada pero no se publicó. `2.0.1` corrige la contabilización del budget tras una transición y la reemplaza.
 
 - **Base:** `v1.4.1`, commit `7b59308`
-- **Objetivo:** `v2.0.0`
+- **Objetivo:** `v2.0.1`
 - **Criterio global:** instalable con los SDK actuales, gating consistente, sin carreras async, tipos literales, budget explícito, CI verde y tarball validado.
 
 ## P0 — Correcciones de contrato
@@ -31,6 +33,12 @@ Eliminar `peerDependencies` y `peerDependenciesMeta`. Mantener cero dependencias
 Revisión monotónica: si el estado cambió mientras el guard estaba pendiente, la transición rechaza. Cubre A → B → A.
 
 **Aceptación:** stale, concurrente, fallback y ABA; el estado final es determinista.
+
+### RFSM-11 — Presupuesto tras transición
+
+El adaptador de Vercel no debe contar una tool call del estado anterior dentro del presupuesto del estado nuevo. La revisión monotónica del FSM se usa para detectar el cambio y saltar las llamadas históricas.
+
+**Aceptación:** `generateText` con `loopShield.maxConsecutiveTools = 1`, `validate_dni` transiciona IDENTITY → BOOKING y `check_availability` sigue disponible; sin transición, el budget se sigue aplicando.
 
 ## P1 — Calidad acotada
 

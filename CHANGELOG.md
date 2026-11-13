@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-11-13
+
+### Fixed
+
+- El adaptador de Vercel ya no contabiliza una tool call del estado anterior dentro del presupuesto del estado nuevo después de `transitionTo()`. La revisión monotónica del FSM permite detectar el cambio y saltar las llamadas históricas.
+- Test de regresión con `generateText` + `MockLanguageModelV3`, `loopShield.enabled` y `maxConsecutiveTools: 1`: `validate_dni` transiciona IDENTITY → BOOKING y `check_availability` sigue disponible.
+- Test de no-regresión: el presupuesto se sigue aplicando cuando no hay cambio de estado.
+
+### Notes
+
+- `2.0.0` quedó etiquetada pero nunca se publicó en npm. `2.0.1` la reemplaza. El tag público `v2.0.0` no se mueve.
+
 ## [2.0.0] - 2026-11-13
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "reactive-fsm",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "State-scoped tool availability and tool budgets for TypeScript AI agents. Zero-dependency core, official Vercel AI SDK 7 adapter.",
   "type": "module",
   "sideEffects": false,

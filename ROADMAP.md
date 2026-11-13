@@ -7,8 +7,8 @@
 - **Checkpoint P0:** [`docs/audits/2026-11-13-v1.5.0-checkpoint.md`](docs/audits/2026-11-13-v1.5.0-checkpoint.md)
 - **Decisiones:** [`ADR-0001`](docs/decisions/0001-scope-and-positioning.md), [`ADR-0002`](docs/decisions/0002-release-2.0.0-scope.md)
 - **Migración:** [`1.x → 2.0.0`](docs/migrations/1.x-to-2.0.0.md)
-- **Estado actual:** `1.4.1` publicada; `2.0.0` en preparación sobre `main`.
-- **Foco actual:** cerrar 2.0.0. No se aprueban funcionalidades nuevas.
+- **Estado actual:** `1.4.1` publicada; `2.0.0` etiquetada pero no publicada; `2.0.1` en preparación sobre `main`.
+- **Foco actual:** cerrar 2.0.1. No se aprueban funcionalidades nuevas.
 
 ## Principios
 
@@ -45,7 +45,8 @@
 - [x] RFSM-09 README reescrito desde garantías demostradas.
 - [x] RFSM-10 Adaptadores no soportados marcados como experimentales.
 - [x] Corregir `activeToolNames()` para respetar `registry.gates`.
-- [ ] Release `2.0.0`: changelog, migración, tarball validado, tag y publicación.
+- [x] Release `2.0.0`: changelog, migración, tarball validado y tag.
+- [ ] Release `2.0.1`: corregir la contabilización tras transición, validar tarball, tag y publicación.
 
 **Criterio de salida:** `npm install <tarball> ai@7` en limpio; tests adversariales de D01–D04 y del budget pasan; `pnpm validate:package` pasa; `CHANGELOG` y guía de migración listos.
 
@@ -93,6 +94,7 @@
 | Versión | Fecha | Estado | Nota |
 |---|---|---|---|
 | `1.4.1` | 2026-09-26 | Publicada | Última versión auditada |
-| `2.0.0` | 2026-11-13 | Release candidate | P0 + P1 acotado; cambios incompatibles |
+| `2.0.0` | 2026-11-13 | Etiquetada, no publicada | Candidato reemplazado por 2.0.1 |
+| `2.0.1` | 2026-11-13 | Release candidate | Corrige la contabilización tras transición |
 | `2.1.0` | — | Planificada | Adopción y evaluación de recortes |
 | `3.0.0` | — | Solo si se justifica | Reducción de alcance |
