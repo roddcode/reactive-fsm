@@ -20,11 +20,12 @@
 
 **Resultado:** documentación permanente, `.gitignore` correcto y CI verde.
 
-- [ ] `ci: run pnpm 10 on Node 18/20/22`
-- [ ] `docs: add v1.4.1 audit, roadmap and scope ADR`
-- [ ] `chore: track ROADMAP and ignore local scratch files`
+- [x] `ci: use pnpm 10 across Node 20/22`
+- [x] `docs: add v1.4.1 audit, roadmap and scope ADR`
+- [x] `chore: track ROADMAP and ignore local scratch files`
+- [x] `chore: require Node 20+ and drop EOL Node 18 from CI`
 
-**Criterio de salida:** CI verde en la matriz soportada; `ROADMAP.md` y `docs/` visibles en GitHub; `git status` limpio.
+**Criterio de salida:** CI verde en Node 20/22; `ROADMAP.md` y `docs/` visibles en GitHub; `git status` limpio. Node 18 queda fuera por EOL y porque Vitest 4 no lo soporta.
 
 ## Etapa 1 — v1.5.0 Stabilization
 

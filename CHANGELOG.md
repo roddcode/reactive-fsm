@@ -15,12 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- El CI y `packageManager` usan pnpm 10.18.0 en la matriz de Node 18/20/22 para respetar el `engines` del runtime.
+- El CI y `packageManager` usan pnpm 10.18.0 en la matriz de Node 20/22 para respetar el `engines` del runtime.
 - `ROADMAP.md` pasa a estar versionado; `roadmap.md` deja de estar ignorado.
+- El runtime declara Node 20+; Node 18 está EOL y Vitest 4 no lo soporta.
 
-### Fixed
+### Removed
 
-- El job de Node 20 deja de fallar en `actions/setup-node@v4` por el requisito de Node de pnpm 11.
+- Soporte declarado de Node 18. El código probablemente sigue funcionando allí, pero no se testea ni se promete.
 
 ## [1.4.1] - 2026-09-26
 

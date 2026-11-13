@@ -67,7 +67,7 @@
   },
   "homepage": "https://github.com/roddcode/reactive-fsm#readme",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

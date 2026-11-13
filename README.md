@@ -42,7 +42,7 @@ stateDiagram-v2
 npm install reactive-fsm
 ```
 
-Requires Node 18+.
+Requires Node 20+.
 
 ```typescript
 import { createFSM } from 'reactive-fsm'
