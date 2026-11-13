@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { createFSM } from '../src/core/machine';
 import { buildToolsForGate } from '../src/core/tool-gating';
 import { createLoopShield } from '../src/core/loop-shield';
@@ -157,78 +157,102 @@ describe('Loop Shield', () => {
 });
 
 // Test 4: Loop Shield with Adapter
-describe('createVercelAdapter — Loop Shield via prepareStep', () => {
+describe('createVercelAdapter — AI SDK 7 prepareStep', () => {
   interface Ctx {
     contactId: string;
   }
-
-  const fsm = createFSM({
-    initialState: 'IDENTITY',
-    states: ['IDENTITY', 'BOOKING', 'PAYMENT'],
-    tools: {
-      IDENTITY: ['validate_dni'],
-      BOOKING: ['check_availability', 'reserve_slot'],
-      PAYMENT: ['process_payment'],
-    },
-    loopShield: { enabled: true, maxConsecutiveTools: 3 },
-  });
 
   const registry: ToolEntry<Ctx>[] = [
     {
       name: 'validate_dni',
       gates: ['IDENTITY'],
-      build: (ctx) => ({ description: `Validate DNI for ${ctx.contactId}`, execute: () => {} }),
+      build: (ctx) => ({
+        description: `Validate DNI for ${ctx.contactId}`,
+        inputSchema: { type: 'object', properties: {} },
+        execute: () => {},
+      }),
     },
     {
       name: 'check_availability',
       gates: ['BOOKING'],
-      build: () => ({ description: 'Check availability', execute: () => {} }),
+      build: () => ({
+        description: 'Check availability',
+        inputSchema: { type: 'object', properties: {} },
+        execute: () => {},
+      }),
     },
     {
       name: 'reserve_slot',
       gates: ['BOOKING'],
-      build: () => ({ description: 'Reserve slot', execute: () => {} }),
+      build: () => ({
+        description: 'Reserve slot',
+        inputSchema: { type: 'object', properties: {} },
+        execute: () => {},
+      }),
     },
     {
       name: 'process_payment',
       gates: ['PAYMENT'],
-      build: () => ({ description: 'Process payment', execute: () => {} }),
+      build: () => ({
+        description: 'Process payment',
+        inputSchema: { type: 'object', properties: {} },
+        execute: () => {},
+      }),
     },
   ];
 
-  const adapter = createVercelAdapter(fsm, registry, { contactId: '123' });
+  let fsm: ReturnType<typeof createFSM>;
+  let adapter: ReturnType<typeof createVercelAdapter<Ctx>>;
 
-  it('should inject tools for the current FSM gate', () => {
-    const injected = adapter.inject();
-    expect(Object.keys(injected.tools)).toEqual(['validate_dni']);
+  beforeEach(() => {
+    fsm = createFSM({
+      initialState: 'IDENTITY',
+      states: ['IDENTITY', 'BOOKING', 'PAYMENT'],
+      tools: {
+        IDENTITY: ['validate_dni'],
+        BOOKING: ['check_availability', 'reserve_slot'],
+        PAYMENT: ['process_payment'],
+      },
+      loopShield: { enabled: true, maxConsecutiveTools: 3 },
+    });
+    adapter = createVercelAdapter(fsm, registry, { contactId: '123' });
   });
 
-  it('should inject updated tools after FSM transition', () => {
+  async function activeTools(): Promise<string[]> {
+    const injected = adapter.inject();
+    const result = await injected.prepareStep({ steps: [], stepNumber: 0 });
+    return (result.activeTools ?? []).sort();
+  }
+
+  it('exposes all registry tools but activates only the current gate', async () => {
+    const injected = adapter.inject();
+    expect(Object.keys(injected.tools).sort()).toEqual([
+      'check_availability',
+      'process_payment',
+      'reserve_slot',
+      'validate_dni',
+    ]);
+    expect(await activeTools()).toEqual(['validate_dni']);
+  });
+
+  it('activates the new gate after FSM transition', async () => {
     fsm.transitionTo('BOOKING');
-    const injected = adapter.inject();
-    expect(Object.keys(injected.tools)).toEqual(['check_availability', 'reserve_slot']);
+    expect(await activeTools()).toEqual(['check_availability', 'reserve_slot']);
   });
 
-  it('should NOT force toolChoice:none when under maxConsecutiveTools', async () => {
-    // Simulate prepareStep with 2 tool calls
-    const injected = adapter.inject();
-    const result = await injected.prepareStep!({
+  it('does not force toolChoice:none under maxConsecutiveTools', async () => {
+    const result = await adapter.inject().prepareStep({
       steps: [
         { toolCalls: [{ toolName: 't1' }] },
         { toolCalls: [{ toolName: 't2' }] },
       ],
       stepNumber: 3,
     });
-    // Should not force stop yet (only 2 consecutive tools so far)
-    expect(result).toEqual({});
+    expect(result).toEqual({ activeTools: ['validate_dni'] });
   });
 
-  it('should force toolChoice:none when maxConsecutiveTools reached', async () => {
-    // Reset the FSM loop shield first
-    fsm._resetLoopShield();
-    // Simulate 3 consecutive tool calls reaching step 4
-    const injected = adapter.inject();
-    const result = await injected.prepareStep!({
+  it('forces toolChoice:none when maxConsecutiveTools reached', async () => {
+    const result = await adapter.inject().prepareStep({
       steps: [
         {},
         { toolCalls: [{ toolName: 't1' }] },
@@ -240,12 +264,9 @@ describe('createVercelAdapter — Loop Shield via prepareStep', () => {
     expect(result).toEqual({ toolChoice: 'none' as const });
   });
 
-  it('should inject gate refresh when state changed externally', async () => {
-    // The adapter provides an onStateChange hook for gate refresh
-    // Simulate external state change
+  it('activates the refreshed gate', async () => {
     adapter.refreshGate('PAYMENT');
-    const injected = adapter.inject();
-    expect(Object.keys(injected.tools)).toEqual(['process_payment']);
+    expect(await activeTools()).toEqual(['process_payment']);
   });
 });
 

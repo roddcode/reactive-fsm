@@ -1,13 +1,12 @@
 /**
- * Integration test: reactive-fsm + Vercel AI SDK adapter
+ * Integration test: reactive-fsm + Vercel AI SDK adapter.
  *
- * Simulates a full multi-step conversation flow:
- *   greeting -> identity capture -> booking -> loop shield trigger
- *
- * No OpenAI API key needed; LLM behavior is mocked.
+ * The adapter targets AI SDK 7. `inject()` returns the full ToolSet and a
+ * `prepareStep` that activates only the tools allowed by the current FSM state.
+ * No provider API key is needed; the LLM behavior is simulated.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createFSM, buildToolsForGate, createVercelAdapter } from '../src/index';
+import { describe, it, expect } from 'vitest';
+import { createFSM, createVercelAdapter } from '../src/index';
 import type { ToolEntry } from '../src/index';
 
 interface ChatContext {
@@ -16,14 +15,13 @@ interface ChatContext {
   stepCount: number;
 }
 
-// Mock tool builders
 const registry: ToolEntry<ChatContext>[] = [
   {
     name: 'greet_user',
     gates: ['GREETING'],
     build: (ctx) => ({
       description: `Greet user ${ctx.contactId}`,
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ greeting: `Hello ${ctx.contactId}` }),
     }),
   },
@@ -32,7 +30,7 @@ const registry: ToolEntry<ChatContext>[] = [
     gates: ['IDENTITY'],
     build: () => ({
       description: 'Validate user DNI',
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ valid: true }),
     }),
   },
@@ -42,7 +40,7 @@ const registry: ToolEntry<ChatContext>[] = [
     condition: (ctx) => ctx.contactName === null,
     build: () => ({
       description: 'Ask for and collect user name',
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ name: 'Collected' }),
     }),
   },
@@ -51,7 +49,7 @@ const registry: ToolEntry<ChatContext>[] = [
     gates: ['BOOKING'],
     build: () => ({
       description: 'Check slot availability',
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ available: true, slots: ['10:00', '11:00'] }),
     }),
   },
@@ -60,7 +58,7 @@ const registry: ToolEntry<ChatContext>[] = [
     gates: ['BOOKING'],
     build: () => ({
       description: 'Reserve a time slot',
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ booked: true, slot: '10:00' }),
     }),
   },
@@ -69,7 +67,7 @@ const registry: ToolEntry<ChatContext>[] = [
     gates: ['PAYMENT'],
     build: () => ({
       description: 'Process payment',
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ paid: true }),
     }),
   },
@@ -78,45 +76,20 @@ const registry: ToolEntry<ChatContext>[] = [
     gates: ['PAYMENT'],
     build: () => ({
       description: 'Send payment receipt',
-      parameters: {},
+      inputSchema: { type: 'object', properties: {} },
       execute: async () => ({ sent: true }),
     }),
   },
 ];
 
-// Conversation flow simulator (LLM mock)
-interface SimulatedStep {
-  toolCalls: Array<{ toolName: string; args?: unknown }>;
-  toolResults: Array<{ toolName: string; result?: unknown }>;
-}
-
-function simulateConversation(
-  fsm: ReturnType<typeof createFSM>,
+async function activeTools(
   adapter: ReturnType<typeof createVercelAdapter<ChatContext>>,
-  steps: Array<{ state: string; toolNames: string[] }>,
-): SimulatedStep[] {
-  const history: SimulatedStep[] = [];
-
-  for (const step of steps) {
-    // External gate change (simulating DB mutation from tool execution)
-    if (step.state !== fsm.currentState) {
-      adapter.refreshGate(step.state);
-    }
-
-    // Build step with tool calls
-    const toolCalls = step.toolNames.map((name) => ({ toolName: name }));
-    const toolResults = step.toolNames.map((name) => ({
-      toolName: name,
-      result: { ok: true },
-    }));
-
-    history.push({ toolCalls, toolResults });
-  }
-
-  return history;
+): Promise<string[]> {
+  const injected = adapter.inject();
+  const result = await injected.prepareStep({ steps: [], stepNumber: 0 });
+  return (result.activeTools ?? []).sort();
 }
 
-// Tests
 describe('Integration — Conversational Flow', () => {
   const fsm = createFSM({
     initialState: 'GREETING',
@@ -133,20 +106,19 @@ describe('Integration — Conversational Flow', () => {
   const ctx: ChatContext = { contactId: 'test-1', contactName: null, stepCount: 0 };
   const adapter = createVercelAdapter(fsm, registry, ctx);
 
-  it('Step 1: Greeting gate — solo greet_user disponible', () => {
-    const { tools } = adapter.inject();
-    expect(Object.keys(tools)).toEqual(['greet_user']);
-    expect(tools.greet_user).toHaveProperty('description');
-    expect((tools.greet_user as any).description).toContain('test-1');
+  it('Step 1: Greeting gate — solo greet_user activo', async () => {
+    const injected = adapter.inject();
+    expect(injected.tools.greet_user).toHaveProperty('description');
+    expect((injected.tools.greet_user as any).description).toContain('test-1');
+    expect(await activeTools(adapter)).toEqual(['greet_user']);
   });
 
-  it('Step 2: Transición a IDENTITY — se inyectan tools de identidad', () => {
+  it('Step 2: Transición a IDENTITY — se activan las tools de identidad', async () => {
     adapter.refreshGate('IDENTITY');
-    const { tools } = adapter.inject();
-    expect(Object.keys(tools).sort()).toEqual(['collect_name', 'validate_dni']);
+    expect(await activeTools(adapter)).toEqual(['collect_name', 'validate_dni']);
   });
 
-  it('Step 3: collect_name oculta si el contacto ya tiene nombre', () => {
+  it('Step 3: collect_name se oculta si el contacto ya tiene nombre', async () => {
     const ctxWithName: ChatContext = { contactId: 'test-2', contactName: 'Juan', stepCount: 0 };
     const fsm2 = createFSM({
       initialState: 'IDENTITY',
@@ -154,21 +126,17 @@ describe('Integration — Conversational Flow', () => {
       tools: { IDENTITY: ['validate_dni', 'collect_name'], BOOKING: [] },
     });
     const adapter2 = createVercelAdapter(fsm2, registry, ctxWithName);
-    const { tools } = adapter2.inject();
-    expect(Object.keys(tools)).toEqual(['validate_dni']);
-    expect('collect_name' in tools).toBe(false);
+    expect(await activeTools(adapter2)).toEqual(['validate_dni']);
   });
 
-  it('Step 4: Transición a BOOKING — tools de reserva disponibles', () => {
+  it('Step 4: Transición a BOOKING — tools de reserva activas', async () => {
     adapter.refreshGate('BOOKING');
-    const { tools } = adapter.inject();
-    expect(Object.keys(tools).sort()).toEqual(['check_availability', 'reserve_slot']);
+    expect(await activeTools(adapter)).toEqual(['check_availability', 'reserve_slot']);
   });
 
-  it('Step 5: Transición a PAYMENT — tools de pago disponibles', () => {
+  it('Step 5: Transición a PAYMENT — tools de pago activas', async () => {
     adapter.refreshGate('PAYMENT');
-    const { tools } = adapter.inject();
-    expect(Object.keys(tools).sort()).toEqual(['process_payment', 'send_receipt']);
+    expect(await activeTools(adapter)).toEqual(['process_payment', 'send_receipt']);
   });
 });
 
@@ -186,10 +154,9 @@ describe('Integration — Loop Shield en flujo multi-step', () => {
     stepCount: 0,
   });
 
-  it('No fuerza stop con 2 tools consecutivas', async () => {
+  it('No fuerza stop con 2 tool calls consecutivas', async () => {
     const { prepareStep } = adapter.inject();
-
-    const result = await prepareStep!({
+    const result = await prepareStep({
       steps: [
         { toolCalls: [{ toolName: 'check_availability' }] },
         { toolCalls: [{ toolName: 'reserve_slot' }] },
@@ -197,13 +164,12 @@ describe('Integration — Loop Shield en flujo multi-step', () => {
       stepNumber: 3,
     });
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ activeTools: ['check_availability', 'reserve_slot'] });
   });
 
-  it('Fuerza toolChoice:none con 3+ tools consecutivas', async () => {
+  it('Fuerza toolChoice:none con 3+ tool calls consecutivas', async () => {
     const { prepareStep } = adapter.inject();
-
-    const result = await prepareStep!({
+    const result = await prepareStep({
       steps: [
         {},
         { toolCalls: [{ toolName: 'check_availability' }] },
@@ -218,23 +184,22 @@ describe('Integration — Loop Shield en flujo multi-step', () => {
 
   it('No fuerza stop si hubo un paso sin tools en el medio', async () => {
     const { prepareStep } = adapter.inject();
-
-    const result = await prepareStep!({
+    const result = await prepareStep({
       steps: [
         { toolCalls: [{ toolName: 't1' }] },
-        {}, // a step without tools breaks the chain
+        {},
         { toolCalls: [{ toolName: 't2' }] },
         { toolCalls: [{ toolName: 't3' }] },
       ],
       stepNumber: 4,
     });
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ activeTools: ['check_availability', 'reserve_slot'] });
   });
 });
 
 describe('Integration — Gate Refresh en flujo real', () => {
-  it('Gate refresh dentro de prepareStep: detecta cambio y muta tools in-place', async () => {
+  it('prepareStep activa las tools del gate refrescado', async () => {
     const fsm = createFSM({
       initialState: 'IDENTITY',
       states: ['IDENTITY', 'BOOKING'],
@@ -250,19 +215,13 @@ describe('Integration — Gate Refresh en flujo real', () => {
       stepCount: 0,
     });
 
-    const { tools, prepareStep } = adapter.inject();
-    expect(Object.keys(tools).sort()).toEqual(['collect_name', 'validate_dni']);
+    const { prepareStep } = adapter.inject();
+    const before = await prepareStep({ steps: [], stepNumber: 1 });
+    expect(before).toEqual({ activeTools: ['validate_dni', 'collect_name'] });
 
-    // Simulate a tool from the previous step mutating the DB
     adapter.refreshGate('BOOKING');
 
-    // prepareStep must detect the gate change and refresh tools in place
-    await prepareStep!({
-      steps: [],
-      stepNumber: 1,
-    });
-
-    // The tools object mutated: it now carries BOOKING tools
-    expect(Object.keys(tools).sort()).toEqual(['check_availability', 'reserve_slot']);
+    const after = await prepareStep({ steps: [], stepNumber: 2 });
+    expect(after).toEqual({ activeTools: ['check_availability', 'reserve_slot'] });
   });
 });

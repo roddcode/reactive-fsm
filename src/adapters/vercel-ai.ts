@@ -1,10 +1,23 @@
 import type { FSMPublic, FSMInstance } from '../core/machine.js';
-import { buildToolsForGate, type ToolEntry } from '../core/tool-gating.js';
+import type { ToolEntry } from '../core/tool-gating.js';
 import { createBaseAdapter } from './base.js';
 
+/**
+ * Structural subset of the AI SDK `Tool` type. The adapter deliberately does
+ * not import `ai`: the core stays dependency-free, while the returned object is
+ * assignable to `ToolSet` in AI SDK 7.
+ */
+export interface VercelTool {
+  description?: string;
+  inputSchema: any;
+  execute?: (...args: any[]) => any;
+  [key: string]: any;
+}
+
+export type VercelToolSet = Record<string, VercelTool>;
+
 export interface VercelStepInfo {
-  toolCalls?: Array<{ toolName: string; args?: unknown }>;
-  toolResults?: Array<{ toolName: string; result?: unknown }>;
+  toolCalls?: Array<{ toolName: string }>;
 }
 
 export interface VercelPrepareStepParams {
@@ -12,29 +25,23 @@ export interface VercelPrepareStepParams {
   stepNumber: number;
 }
 
+export interface VercelPrepareStepResult {
+  activeTools?: string[];
+  toolChoice?: 'none';
+}
+
+export type VercelPrepareStep = (
+  params: VercelPrepareStepParams,
+) => Promise<VercelPrepareStepResult>;
+
 export interface VercelInjectResult {
-  tools: Record<string, unknown>;
-  prepareStep?: (params: VercelPrepareStepParams) => Promise<{ toolChoice?: 'none' } | Record<string, never>>;
+  tools: VercelToolSet;
+  prepareStep: VercelPrepareStep;
 }
 
 export interface VercelAdapter<TContext = any> {
   inject(): VercelInjectResult;
   refreshGate(state: string): void;
-}
-
-function syncTools(
-  target: Record<string, unknown>,
-  gate: string,
-  ctx: unknown,
-  registry: ToolEntry[],
-): void {
-  const fresh = buildToolsForGate(gate, ctx, registry);
-  for (const key of Object.keys(target)) {
-    delete target[key];
-  }
-  for (const [key, value] of Object.entries(fresh)) {
-    target[key] = value;
-  }
 }
 
 export function createVercelAdapter<TContext = any>(
@@ -44,47 +51,60 @@ export function createVercelAdapter<TContext = any>(
 ): VercelAdapter<TContext> {
   const _fsm = fsm as FSMInstance;
   const base = createBaseAdapter(fsm);
-  const tools: Record<string, unknown> = {};
-  let currentGate: string | null = null;
+
+  function activeToolNames(tools: VercelToolSet): string[] {
+    const available = new Set(Object.keys(tools));
+    const allowed = new Set(_fsm.allowedTools);
+    const names = new Set<string>();
+
+    for (const entry of registry) {
+      if (!available.has(entry.name)) continue;
+      if (!allowed.has(entry.name)) continue;
+      if (entry.condition && !entry.condition(context)) continue;
+      names.add(entry.name);
+    }
+
+    return [...names];
+  }
 
   return {
     inject(): VercelInjectResult {
-      currentGate = _fsm.currentState;
-      syncTools(tools, currentGate, context, registry);
+      const tools: VercelToolSet = {};
 
-      return {
-        tools,
-        prepareStep: async ({ steps }: VercelPrepareStepParams) => {
-          let consecutiveToolSteps = 0;
-          for (let i = steps.length - 1; i >= 0; i--) {
-            if ((steps[i].toolCalls?.length ?? 0) > 0) {
-              consecutiveToolSteps++;
-            } else {
-              break;
-            }
-          }
+      // Build the full ToolSet once per injection. AI SDK 7 exposes only the
+      // `activeTools` subset to the model, so the object stays stable while the
+      // FSM state changes.
+      for (const entry of registry) {
+        const built = entry.build(context);
+        if (built && typeof built === 'object') {
+          tools[entry.name] = built as VercelTool;
+        }
+      }
 
-          _fsm._resetLoopShield();
-          for (let i = 0; i < consecutiveToolSteps; i++) {
-            const step = steps[steps.length - consecutiveToolSteps + i];
-            const lastName = step?.toolCalls?.[step.toolCalls.length - 1]?.toolName;
-            _fsm._registerToolCall(lastName);
-          }
+      const prepareStep: VercelPrepareStep = async ({ steps }) => {
+        // Count every tool call in the trailing run of tool-using steps.
+        // A text-only step breaks the run.
+        const consecutiveCalls: string[] = [];
+        for (let i = steps.length - 1; i >= 0; i--) {
+          const calls = steps[i].toolCalls ?? [];
+          if (calls.length === 0) break;
+          consecutiveCalls.unshift(...calls.map((call) => call.toolName));
+        }
 
-          if (_fsm.isLooping) {
-            return { toolChoice: 'none' as const };
-          }
+        _fsm._resetLoopShield();
+        for (const toolName of consecutiveCalls) {
+          _fsm._registerToolCall(toolName);
+        }
 
-          if (_fsm.currentState !== currentGate) {
-            currentGate = _fsm.currentState;
-            syncTools(tools, currentGate, context, registry);
-          }
+        if (_fsm.isLooping) {
+          return { toolChoice: 'none' };
+        }
 
-          return {};
-        },
+        return { activeTools: activeToolNames(tools) };
       };
-    },
 
+      return { tools, prepareStep };
+    },
     refreshGate: base.refreshGate,
   };
 }
