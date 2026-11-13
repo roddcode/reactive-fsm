@@ -1,8 +1,9 @@
 # ADR-0001: Scope and positioning
 
-- **Estado:** aceptado
+- **Estado:** aceptado por el mantenedor
 - **Fecha:** 2026-11-12
-- **Decisor:** mantenedor
+- **Propuesto por:** agente, a partir de la auditoría de `reactive-fsm` v1.4.1
+- **Decisor:** mantenedor (confirmado en conversación, 2026-11-12)
 - **Contexto:** auditoría de `reactive-fsm` v1.4.1, commit `7b59308`
 
 ## Contexto
@@ -17,7 +18,7 @@ La versión 1.4.1 tiene un núcleo pequeño y legible, pero su superficie públi
 - Hay APIs muertas o no integradas (`prompts`, `schema`, `currentStateGroup`, `toMermaid`).
 - El CI está rojo y el badge público dice “failing”.
 
-El proyecto tiene 1 star, 0 forks, 0 issues, 0 releases y 75 descargas mensuales. No hay usuarios externos que justifiquen mantener cinco adaptadores ni una compatibilidad amplia.
+El proyecto tiene 1 star, 0 forks, 0 issues, 0 releases y 75 descargas mensuales. No se ha demostrado adopción externa relevante que justifique mantener cinco adaptadores ni una compatibilidad amplia.
 
 ## Decisión
 

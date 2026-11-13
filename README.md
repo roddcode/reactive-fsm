@@ -4,9 +4,9 @@
 [![CI](https://github.com/roddcode/reactive-fsm/actions/workflows/ci.yml/badge.svg)](https://github.com/roddcode/reactive-fsm/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/reactive-fsm)](https://github.com/roddcode/reactive-fsm/blob/main/LICENSE)
 
-**Deterministic control for AI agents with tool calling.** Define what tools an LLM can call at each step of a conversation. Zero dependencies. TypeScript.
+**State-scoped tool availability for TypeScript AI agents.** Define which tools are visible at each step of a conversation, with a small, explicit state machine and a per-step tool budget. Zero runtime dependencies.
 
-LLMs call tools in loops, in the wrong order, or before the data exists. reactive-fsm gates which tools exist in each state of the conversation, so the model can only move the flow forward.
+LLMs call tools in loops, in the wrong order, or before the data exists. reactive-fsm gates which tools are advertised in each state. It is advisory: the application still authorizes and validates execution.
 
 ```mermaid
 stateDiagram-v2
@@ -31,10 +31,10 @@ stateDiagram-v2
 
 ## What it does
 
-- **Loop shield.** Detects tool-calling loops: configurable threshold, two modes (`consecutive` any-tool or `repeated` same-tool), optional `onLoop` callback with metadata.
-- **Async guard.** `guard` accepts `Promise<boolean>`. Use `transitionToAsync()` for DB checks, API calls, or any async validation before a state change.
+- **Tool budget.** Counts consecutive tool calls between steps: configurable threshold, two modes (`consecutive` any-tool or `repeated` same-tool), optional `onLoop` callback. It is an admission budget: multiple calls inside one step can still exceed it.
+- **Async guard.** `guard` accepts `Promise<boolean>`. Use `transitionToAsync()` for DB checks or API calls. A transition is rejected if the state changed while the guard was pending.
 - **State groups.** `STATE:substate` naming convention. `currentStateGroup` returns `'STATE'` for `'STATE:date'`, `'STATE:time'`, `'STATE:confirm'`.
-- **5 providers, 1 API.** Vercel AI SDK, OpenAI, Anthropic, LangChain, Google Gemini. Shared adapter base, zero duplication.
+- **Vercel AI SDK 7 first.** Official adapter with `prepareStep`/`activeTools`. OpenAI, Anthropic, LangChain and Gemini adapters are experimental until they have contract tests.
 
 ## Quickstart
 
@@ -65,19 +65,67 @@ fsm.transitionTo('BOOKING')
 fsm.allowedTools        // ['check_availability', 'reserve_slot']
 ```
 
-### With Vercel AI SDK (3 lines)
+### With Vercel AI SDK 7
 
 ```typescript
+import { generateText, isStepCount, jsonSchema } from 'ai'
+import { openai } from '@ai-sdk/openai'
+import { createFSM, type ToolEntry } from 'reactive-fsm'
 import { createVercelAdapter } from 'reactive-fsm/adapters/vercel-ai'
 
-const adapter = createVercelAdapter(fsm, registry, context)
+interface Ctx {
+  contactId: string
+}
+
+const fsm = createFSM({
+  initialState: 'IDENTITY',
+  states: ['IDENTITY', 'BOOKING'],
+  tools: {
+    IDENTITY: ['validate_dni'],
+    BOOKING: ['check_availability'],
+  },
+})
+
+const registry: ToolEntry<Ctx>[] = [
+  {
+    name: 'validate_dni',
+    gates: ['IDENTITY'],
+    build: () => ({
+      description: 'Validate the customer DNI',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: { dni: { type: 'string' } },
+        required: ['dni'],
+      }),
+      execute: async ({ dni }: { dni: string }) => {
+        if (!dni) throw new Error('DNI is required')
+        fsm.transitionTo('BOOKING')
+        return { valid: true }
+      },
+    }),
+  },
+  {
+    name: 'check_availability',
+    gates: ['BOOKING'],
+    build: () => ({
+      description: 'Check available slots',
+      inputSchema: jsonSchema({ type: 'object', properties: {} }),
+      execute: async () => ({ slots: ['10:00', '11:00'] }),
+    }),
+  },
+]
+
+const adapter = createVercelAdapter(fsm, registry, { contactId: 'c-1' })
 
 const response = await generateText({
   model: openai('gpt-4o'),
-  messages,
-  ...adapter.inject(),   // { tools, prepareStep }
+  prompt: 'Hola, quiero reservar una cita',
+  ...adapter.inject(), // { tools, prepareStep }
+  stopWhen: isStepCount(5),
 })
 ```
+
+`inject().tools` contains the full `ToolSet`; `prepareStep` returns `activeTools` with only the tools allowed by the current FSM state. The adapter does not mutate the tool set.
 
 ### With OpenAI (imperative loop)
 
@@ -157,30 +205,28 @@ const support = createFSM({
 })
 ```
 
-Loop shield triggers after 3 failed fix attempts. `ESCALATION` has exactly one tool. The bot cannot stay in the loop; it must escalate.
+The tool budget trips after 3 consecutive tool calls. It does not know whether the tool succeeded or failed; if you need failure-aware escalation, implement it in your tool `execute` and transition explicitly. `ESCALATION` has exactly one tool.
 
 ## Adapters
 
-| Provider | Import | Loop shield |
-|----------|--------|-------------|
-| Vercel AI SDK | `reactive-fsm/adapters/vercel-ai` | Automatic via `prepareStep` |
-| OpenAI | `reactive-fsm/adapters/openai` | Manual via `isLooping()` |
-| Anthropic | `reactive-fsm/adapters/anthropic` | Manual via `isLooping()` |
-| LangChain | `reactive-fsm/adapters/langchain` | Manual via `shouldStop()` |
-| Google Gemini | `reactive-fsm/adapters/gemini` | Manual via `isLooping()` |
+| Provider | Import | Status | Tool budget |
+|----------|--------|--------|-------------|
+| Vercel AI SDK 7 | `reactive-fsm/adapters/vercel-ai` | Official | Automatic via `prepareStep` |
+| OpenAI | `reactive-fsm/adapters/openai` | Experimental | Manual via `isLooping()` |
+| Anthropic | `reactive-fsm/adapters/anthropic` | Experimental | Manual via `isLooping()` |
+| LangChain | `reactive-fsm/adapters/langchain` | Experimental | Manual via `shouldStop()` |
+| Google Gemini | `reactive-fsm/adapters/gemini` | Experimental / legacy SDK | Manual via `isLooping()` |
 
-All adapters share the same pattern: build an FSM once, pass it to any adapter, call `inject()` to get provider-formatted tools.
+Only the Vercel AI SDK 7 adapter is covered by contract tests in `1.5.0`. The other adapters format tool definitions; they are not full runtime integrations.
 
-## vs LangGraph
+## Scope
 
-| | reactive-fsm | LangGraph |
-|---|---|---|
-| Dependencies | 0 (core) | LangChain + sub-dependencies |
-| Define a 3-state FSM | 5 lines | 30+ lines |
-| Tool gating per state | Declarative (`tools: { ... }`) | Manual (`route_tools(state)`) |
-| Loop shield | Built-in | Not built-in |
-| Gate refresh mid-turn | Automatic | Manual |
-| Providers | Any (5 adapters) | LangChain ecosystem |
+reactive-fsm is a small policy layer, not an agent runtime or a full statechart engine.
+
+- It does not execute tools or authorize side effects. The application must validate arguments and enforce permissions.
+- It does not persist conversation context; `snapshot()` stores only the current state.
+- It does not detect semantic loops. The tool budget counts calls between steps.
+- It does not replace LangGraph, Mastra, OpenAI Agents SDK or XState. Use those when you need durable orchestration, a full runtime or a statechart.
 
 ## API
 
@@ -221,8 +267,8 @@ interface ToolEntry<TContext = any> {
   name: string
   gates: string[]
   condition?: (ctx: TContext) => boolean
-  build: (ctx: TContext) => unknown
-  schema?: unknown              // Zod/Valibot/ArkType schema
+  build: (ctx: TContext) => unknown  // provider-specific tool shape
+  schema?: unknown                   // optional; pass to validateWith() (Zod/Valibot); not automatic
 }
 
 buildToolsForGate(gate, ctx, registry): Record<string, unknown>
