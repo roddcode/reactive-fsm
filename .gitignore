@@ -6,6 +6,10 @@ dist/
 package-lock.json
 coverage/
 
+# VitePress
+site/.vitepress/dist/
+site/.vitepress/cache/
+
 # Local credentials
 .npmrc
 
