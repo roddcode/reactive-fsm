@@ -18,7 +18,7 @@ export function createGeminiAdapter<TContext = any>(
   const base = createBaseAdapter(fsm);
   return {
     inject() {
-      const toolMap = buildToolsForGate(fsm.currentState, context, registry);
+      const toolMap = buildToolsForGate(fsm.currentState, context, registry, fsm.allowedTools);
       const declarations: unknown[] = [];
       for (const t of Object.values(toolMap)) {
         const tool = t as Record<string, unknown>;

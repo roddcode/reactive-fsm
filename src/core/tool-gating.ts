@@ -32,10 +32,13 @@ export function buildToolsForGate<TContext = any>(
   gate: string,
   ctx: TContext,
   registry: ToolEntry<TContext>[],
+  allowedTools?: readonly string[],
 ): Record<string, unknown> {
+  const allowed = allowedTools ? new Set(allowedTools) : null;
   return Object.fromEntries(
     registry
       .filter((entry) => entry.gates.includes(gate))
+      .filter((entry) => allowed === null || allowed.has(entry.name))
       .filter((entry) => entry.condition === undefined || entry.condition(ctx))
       .map((entry) => [entry.name, entry.build(ctx)]),
   );

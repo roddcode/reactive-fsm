@@ -22,7 +22,7 @@ export function createOpenAIAdapter<TContext = any>(
   const base = createBaseAdapter(fsm);
   return {
     inject(): OpenAIInjectResult {
-      const toolMap = buildToolsForGate(fsm.currentState, context, registry);
+      const toolMap = buildToolsForGate(fsm.currentState, context, registry, fsm.allowedTools);
       return { tools: Object.values(toolMap) };
     },
     isLooping: base.isLooping,

@@ -17,7 +17,7 @@ export function wrapWithFSM<TContext = any>(
   const base = createBaseAdapter(fsm);
   return {
     getTools() {
-      return buildToolsForGate(fsm.currentState, context, registry);
+      return buildToolsForGate(fsm.currentState, context, registry, fsm.allowedTools);
     },
     shouldStop: base.isLooping,
     onToolCall: base.registerToolCall,

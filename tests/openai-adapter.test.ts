@@ -210,7 +210,9 @@ describe('OpenAI Adapter — Flujo conversacional simulado', () => {
     {
       const { tools } = adapter.inject();
       const names = tools.map((t: any) => t.function.name).sort();
-      expect(names).toEqual(['check_availability', 'reserve_slot', 'validate_dni']);
+      // config.tools is authoritative: validate_dni is gated to BOOKING in the
+      // registry, but the FSM does not allow it in BOOKING for this flow.
+      expect(names).toEqual(['check_availability', 'reserve_slot']);
 
       // Simulate the LLM calling check_availability, reserve_slot and retrying
       adapter.registerToolCall(); // 1 (shield reset by refreshGate)
