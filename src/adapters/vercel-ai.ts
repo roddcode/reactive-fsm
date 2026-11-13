@@ -60,6 +60,7 @@ export function createVercelAdapter<TContext = any>(
     for (const entry of registry) {
       if (!available.has(entry.name)) continue;
       if (!allowed.has(entry.name)) continue;
+      if (!entry.gates.includes(_fsm.currentState)) continue;
       if (entry.condition && !entry.condition(context)) continue;
       names.add(entry.name);
     }

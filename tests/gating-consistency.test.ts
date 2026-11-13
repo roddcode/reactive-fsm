@@ -72,4 +72,15 @@ describe('gating consistency — config.tools is authoritative', () => {
     const result = await adapter.inject().prepareStep({ steps: [], stepNumber: 0 });
     expect(result.activeTools).toEqual(['charge']);
   });
+
+  it('does not activate a tool whose registry gates exclude the current state', async () => {
+    const fsm = createFSM({
+      initialState: 'B',
+      states: ['A', 'B'],
+      tools: { A: [], B: ['charge'] },
+    });
+    const adapter = createVercelAdapter(fsm, registry, {});
+    const result = await adapter.inject().prepareStep({ steps: [], stepNumber: 0 });
+    expect(result.activeTools).toEqual([]);
+  });
 });
