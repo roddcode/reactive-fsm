@@ -4,9 +4,11 @@
 > Una política pequeña, explícita y provider-agnóstica para decidir qué herramientas se anuncian en cada estado y cuántas llamadas se permiten. No es un FSM completo, no es un runtime de agentes y no es una capa de autorización.
 
 - **Auditoría base:** [`docs/audits/2026-11-12-v1.4.1.md`](docs/audits/2026-11-12-v1.4.1.md)
-- **Decisión de alcance:** [`docs/decisions/0001-scope-and-positioning.md`](docs/decisions/0001-scope-and-positioning.md)
-- **Estado actual:** `1.4.1`, commit `7b59308`, auditada el 2026-11-12.
-- **Foco actual:** estabilización. No se aprueban funcionalidades nuevas.
+- **Checkpoint P0:** [`docs/audits/2026-11-13-v1.5.0-checkpoint.md`](docs/audits/2026-11-13-v1.5.0-checkpoint.md)
+- **Decisiones:** [`ADR-0001`](docs/decisions/0001-scope-and-positioning.md), [`ADR-0002`](docs/decisions/0002-release-2.0.0-scope.md)
+- **Migración:** [`1.x → 2.0.0`](docs/migrations/1.x-to-2.0.0.md)
+- **Estado actual:** `1.4.1` publicada; `2.0.0` en preparación sobre `main`.
+- **Foco actual:** cerrar 2.0.0. No se aprueban funcionalidades nuevas.
 
 ## Principios
 
@@ -28,39 +30,42 @@
 
 **Criterio de salida:** CI verde en Node 20/22; `ROADMAP.md` y `docs/` visibles en GitHub; `git status` limpio. Node 18 queda fuera por EOL y porque Vitest 4 no lo soporta.
 
-## Etapa 1 — v1.5.0 Stabilization
+## Etapa 1 — v2.0.0 Stabilization + quality
 
-**Resultado:** instalable con los SDK actuales, gating consistente y sin carreras async.
+**Resultado:** instalable con los SDK actuales, gating consistente, sin carreras async, tipos literales y presupuesto explícito.
 
-- [ ] RFSM-01 Quitar peer dependencies no usadas.
-- [ ] RFSM-02 Unificar `config.tools` y `registry.gates`.
-- [ ] RFSM-03 Reparar Vercel AI SDK 7: `prepareStep`, `activeTools`, `ToolSet`.
-- [ ] RFSM-04 Rechazar transiciones async obsoletas.
+- [x] RFSM-01 Quitar peer dependencies no usadas.
+- [x] RFSM-02 Unificar `config.tools` y `registry.gates`.
+- [x] RFSM-03 Reparar Vercel AI SDK 7: `prepareStep`, `activeTools`, `ToolSet`.
+- [x] RFSM-04 Rechazar transiciones async obsoletas.
+- [x] RFSM-05 CI verde en Node 20/22.
+- [x] RFSM-06 Fallback y loop shield con semántica explícita.
+- [x] RFSM-07 Tipos literales de estado en la API pública.
+- [x] RFSM-08 Tests de contrato con SDKs reales y `typecheck`.
+- [x] RFSM-09 README reescrito desde garantías demostradas.
+- [x] RFSM-10 Adaptadores no soportados marcados como experimentales.
+- [x] Corregir `activeToolNames()` para respetar `registry.gates`.
+- [ ] Release `2.0.0`: changelog, migración, tarball validado, tag y publicación.
 
-**Criterio de salida:** `npm install <tarball> ai@7` en limpio; los tests adversariales de D01–D04 pasan; `pnpm validate:package` pasa; `CHANGELOG` actualizado.
+**Criterio de salida:** `npm install <tarball> ai@7` en limpio; tests adversariales de D01–D04 y del budget pasan; `pnpm validate:package` pasa; `CHANGELOG` y guía de migración listos.
 
-## Etapa 2 — v1.6.0 Quality and adoption
+## Etapa 2 — v2.1.0 Adoption (solo con evidencia)
 
-**Resultado:** una integración real, tipada y documentada; el resto de la superficie, honestamente marcada.
+**Resultado:** adopción real, no más superficie.
 
-- [ ] RFSM-06 Fallback y loop shield con semántica explícita.
-- [ ] RFSM-07 Tipos literales de estado en la API pública.
-- [ ] RFSM-08 Tests de contrato con SDKs reales y `typecheck`.
-- [ ] RFSM-09 README reescrito desde garantías demostradas.
-- [ ] RFSM-10 Reducir adaptadores: Vercel oficial; OpenAI/Anthropic experimentales; LangChain/Gemini fuera de la promesa estable.
+- [ ] Un caso de uso documentado con métricas de complejidad/errores.
+- [ ] Evaluar la eliminación de adaptadores no soportados y APIs muertas (`prompts`, `schema` sin integración, `toMermaid`, `currentStateGroup`).
+- [ ] Comparación reproducible con la solución nativa del SDK, o retirar la comparación.
+- [ ] Solo entonces evaluar nuevas funcionalidades solicitadas por usuarios.
 
-**Criterio de salida:** quickstart copiable y ejecutable; `pnpm typecheck` incluye tests; un test de `generateText` con modelo mock recorre dos estados; el README explica qué no hace la librería.
+**Criterio de salida:** evidencia de que reactive-fsm reduce complejidad o errores frente a la solución nativa. Sin esa evidencia, no se amplía el alcance.
 
-## Etapa 3 — v2.0.0 Scope reduction
+## Etapa 3 — v3.0.0 Scope reduction (solo si se justifica)
 
 **Resultado:** una librería pequeña, especializada y honesta.
 
-- [ ] Eliminar adaptadores no soportados y APIs muertas (`prompts`, `schema` sin integración, `toMermaid` si no se corrige).
-- [ ] Consolidar el tipo genérico `FSMPublic<S>`/`FSMInstance<S>`.
-- [ ] Reemplazar la promesa “FSM determinista” por “state-scoped tool availability”.
-- [ ] Publicar una comparación reproducible con la solución nativa del SDK, o retirar la comparación.
-
-**Criterio de salida:** superficie pública reducida y documentada; sin features nuevas; un caso de uso real documentado.
+- [ ] Eliminar adaptadores no soportados y APIs muertas si la evidencia de 2.1.0 lo justifica.
+- [ ] Mantener el nombre y el posicionamiento de política de herramientas; no convertirlo en framework.
 
 ## No hacer
 
@@ -88,6 +93,6 @@
 | Versión | Fecha | Estado | Nota |
 |---|---|---|---|
 | `1.4.1` | 2026-09-26 | Publicada | Última versión auditada |
-| `1.5.0` | — | Planificada | Estabilización P0 |
-| `1.6.0` | — | Planificada | Calidad y adopción |
-| `2.0.0` | — | Planificada | Reducción de alcance |
+| `2.0.0` | 2026-11-13 | Release candidate | P0 + P1 acotado; cambios incompatibles |
+| `2.1.0` | — | Planificada | Adopción y evaluación de recortes |
+| `3.0.0` | — | Solo si se justifica | Reducción de alcance |

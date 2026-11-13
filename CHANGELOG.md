@@ -5,23 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - 2026-11-13
 
 ### Added
 
-- Auditoría técnica de `1.4.1` en `docs/audits/2026-11-12-v1.4.1.md`.
-- `ROADMAP.md` con el plan de estabilización, integración y reducción de alcance.
-- ADR `docs/decisions/0001-scope-and-positioning.md`.
+- Auditoría técnica de `1.4.1` y checkpoint P0 en `docs/audits/`.
+- `ROADMAP.md`, ADR de alcance y ADR de release 2.0.0.
+- Guía de migración `docs/migrations/1.x-to-2.0.0.md`.
+- Test de integración con `generateText` y `MockLanguageModelV3` que cruza IDENTITY → BOOKING.
+- `pnpm typecheck` con tipos de estado literales y `ai@7`.
+- Tests de gating en los cinco adaptadores, concurrencia async y contrato del budget.
 
 ### Changed
 
-- El CI y `packageManager` usan pnpm 10.18.0 en la matriz de Node 20/22 para respetar el `engines` del runtime.
-- `ROADMAP.md` pasa a estar versionado; `roadmap.md` deja de estar ignorado.
-- El runtime declara Node 20+; Node 18 está EOL y Vitest 4 no lo soporta.
+- `config.tools` es la autoridad del gating; los adaptadores filtran por `allowedTools`, `gates` y `condition`.
+- El adaptador de Vercel usa un `ToolSet` estable y `prepareStep` devuelve `activeTools`; ya no muta `tools`.
+- Las transiciones async obsoletas se rechazan con una revisión monotónica.
+- `createFSM` devuelve `FSMPublic<S>`; `transitionTo` y `transitionToAsync` usan la unión literal de estados.
+- El tool budget se documenta como admisión entre pasos; `onLoop` se dispara una vez por episodio; `repeated` exige nombre; el contador se resetea al cambiar de estado.
+- El CI y `packageManager` usan pnpm 10.18.0 en Node 20/22.
+- El runtime declara Node 20+.
+
+### Fixed
+
+- El adaptador de Vercel respeta `registry.gates` al calcular `activeTools`.
+- El fallback resetea el shield y activa las tools del estado de emergencia.
+- El job de Node 20 deja de fallar en `actions/setup-node@v4`.
+- La suite ya no cuenta un step con varias tool calls como cero.
 
 ### Removed
 
-- Soporte declarado de Node 18. El código probablemente sigue funcionando allí, pero no se testea ni se promete.
+- Los cinco `peerDependencies` de proveedores; el paquete no tiene peers ni dependencias de runtime.
+- Soporte declarado de Node 18 (EOL).
+
+### Breaking changes
+
+- `config.tools` ahora manda sobre `registry.gates`.
+- El adaptador de Vercel requiere AI SDK 7 y cambia la forma de `inject()`.
+- Las transiciones async obsoletas producen error.
+- `createFSM` devuelve `FSMPublic<S>` y oculta los métodos internos.
+- Node 20+.
+
+Ver `docs/migrations/1.x-to-2.0.0.md`.
 
 ## [1.4.1] - 2026-09-26
 

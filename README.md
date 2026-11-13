@@ -8,6 +8,8 @@
 
 LLMs call tools in loops, in the wrong order, or before the data exists. reactive-fsm gates which tools are advertised in each state. It is advisory: the application still authorizes and validates execution.
 
+> Migrating from `1.x`? See [`docs/migrations/1.x-to-2.0.0.md`](docs/migrations/1.x-to-2.0.0.md).
+
 ```mermaid
 stateDiagram-v2
     GREETING: GREETING<br/><i>greet, show_services</i>

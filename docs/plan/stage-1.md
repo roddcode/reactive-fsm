@@ -1,85 +1,100 @@
-# Stage 1 — v1.5.0 Stabilization
+# Stage 1 — v2.0.0 Stabilization + quality
 
-> Este documento es la ejecución detallada de la Etapa 1 del [`ROADMAP.md`](../../ROADMAP.md). La evidencia base está en [`docs/audits/2026-11-12-v1.4.1.md`](../audits/2026-11-12-v1.4.1.md). La decisión de alcance está en [`ADR-0001`](../decisions/0001-scope-and-positioning.md).
+> Ejecución detallada de la Etapa 1 del [`ROADMAP.md`](../../ROADMAP.md). Evidencia base: [`docs/audits/2026-11-12-v1.4.1.md`](../audits/2026-11-12-v1.4.1.md) y [`checkpoint P0`](../audits/2026-11-13-v1.5.0-checkpoint.md). Decisión de release: [`ADR-0002`](../decisions/0002-release-2.0.0-scope.md).
 
 - **Base:** `v1.4.1`, commit `7b59308`
-- **Objetivo:** `v1.5.0`
-- **Criterio global:** instalable con los SDK actuales, gating consistente, sin carreras async, CI verde, `pnpm validate:package` verde y `npm pack` instalable en limpio.
+- **Objetivo:** `v2.0.0`
+- **Criterio global:** instalable con los SDK actuales, gating consistente, sin carreras async, tipos literales, budget explícito, CI verde y tarball validado.
 
-## RFSM-01 — Quitar peers no usados
+## P0 — Correcciones de contrato
 
-**Problema:** los peers declarados bloquean la instalación con los majors actuales y los adaptadores no los importan.
+### RFSM-01 — Quitar peers no usados
 
-**Propuesta:** eliminar `peerDependencies` y `peerDependenciesMeta`. Mantener el paquete sin dependencias de runtime. Añadir `ai@7` y `zod` solo como `devDependencies` para el test de tipos del adaptador de Vercel.
+Eliminar `peerDependencies` y `peerDependenciesMeta`. Mantener cero dependencias de runtime. `ai@7` y `zod` solo como `devDependencies`.
 
-**Aceptación:**
+**Aceptación:** instalación limpia con `ai@7`, `openai@7`, `@anthropic-ai/sdk@1` y `langchain@1`; `pnpm validate:package` verde.
 
-- `npm install <tarball>` en limpio funciona sin peers.
-- `npm install <tarball> ai@7` funciona sin `--legacy-peer-deps`.
-- `npm install <tarball> openai@7`, `@anthropic-ai/sdk@1`, `langchain@1` funcionan.
-- `pnpm validate:package` sigue verde.
-- `package.json` no tiene `peerDependencies`.
+### RFSM-02 — Unificar el gating
 
-## RFSM-02 — Unificar el gating
+`config.tools` es la autoridad. `buildToolsForGate` filtra por `allowedTools`. El adaptador de Vercel cruza `config.tools`, `registry.gates`, `condition` y estado actual.
 
-**Problema:** `config.tools` y `registry.gates` pueden contradecirse; los adaptadores ignoran `allowedTools`.
+**Aceptación:** una tool fuera de `config.tools` o fuera de `gates` no se activa; test adversarial de D02 y del caso `gates` contradictorio.
 
-**Propuesta:** `config.tools` es la autoridad. `buildToolsForGate` acepta `allowedTools?: readonly string[]` y filtra por nombre. Todos los adaptadores pasan `fsm.allowedTools`. El adaptador de Vercel usa `activeTools` con la intersección de `allowedTools`, `gates` y `condition`.
+### RFSM-03 — Vercel AI SDK 7
 
-**Aceptación:**
+`inject()` devuelve un `ToolSet` estable; `prepareStep` devuelve `activeTools`. Sin mutación. Test con `generateText` + `MockLanguageModelV3` que cruza A → B.
 
-- Un registry con una tool gated al estado pero ausente de `config.tools` no se anuncia.
-- Una tool en `config.tools` pero ausente del registry no se anuncia.
-- Los cinco adaptadores respetan la intersección.
-- Test adversarial de D02 pasa.
+**Aceptación:** typecheck contra `ai@7`; el segundo step ve las tools de B; el fallback activa las tools del estado de emergencia.
 
-## RFSM-03 — Adaptador de Vercel para AI SDK 7
+### RFSM-04 — Transiciones async obsoletas
 
-**Problema:** el adaptador entrega `prepareStep` pero asume `ai@4`; no tipa con `ai@7`; muta `tools` en lugar de usar `activeTools`.
+Revisión monotónica: si el estado cambió mientras el guard estaba pendiente, la transición rechaza. Cubre A → B → A.
 
-**Propuesta:** construir un `ToolSet` estructural con todas las tools del registry; `prepareStep` devuelve `activeTools` con la intersección del estado actual. Sin mutación. Tipos estructurales (`VercelTool`, `VercelToolSet`, `VercelPrepareStep`) compatibles con `generateText` de `ai@7`; sin dependencia de runtime.
+**Aceptación:** stale, concurrente, fallback y ABA; el estado final es determinista.
 
-**Aceptación:**
+## P1 — Calidad acotada
 
-- `generateText({ tools, prepareStep, stopWhen })` compila con `ai@7`.
-- `prepareStep` devuelve `{ activeTools: [...] }` o `{ toolChoice: 'none' }`.
-- Un step con varias tool calls cuenta cada llamada.
-- El fallback aplica las tools del estado de emergencia y resetea el shield.
-- El test de tipos con `ai@7` pasa.
+### RFSM-06 — Contrato del tool budget
 
-## RFSM-04 — Rechazar transiciones async obsoletas
+- `onLoop` se dispara una vez por episodio.
+- `mode: 'repeated'` exige `toolName`.
+- `maxConsecutiveTools` debe ser positivo.
+- El contador se resetea al cambiar de estado.
+- El adaptador de Vercel cuenta cada step completado una vez.
 
-**Problema:** `transitionToAsync` captura `from`, espera el guard y escribe sin comprobar si el estado cambió.
+**Aceptación:** tests de `onLoop` único, `repeated` sin nombre, threshold inválido, reset por transición y multi-call step.
 
-**Propuesta:** comprobación optimista después del `await`: si `_currentState !== from`, lanzar un error claro. No introducir colas ni locks.
+### RFSM-07 — Tipos literales
 
-**Aceptación:**
+`FSMPublic<S>` y `FSMInstance<S>` genéricos. `createFSM` devuelve `FSMPublic<S>`; `transitionTo(state: S)`.
 
-- A→B pendiente, A→C, release → B rechaza y el estado final es C.
-- Dos transiciones async concurrentes no se pisan.
-- `onTransition` no reporta un `from` obsoleto.
-- Test adversarial de D04 pasa.
+**Aceptación:** `as const` en `states`; `@ts-expect-error` en un typo; `pnpm typecheck` verde.
+
+### RFSM-08 — Tests de contrato
+
+`pnpm typecheck` con `ai@7`; `generateText` + `MockLanguageModelV3`; tests de gating en los cinco adaptadores; tests adversariales de concurrencia y budget.
+
+**Aceptación:** suite completa verde; el typecheck falla si el hook de Vercel o el tipo de tools se rompe.
+
+### RFSM-09 — Documentación y migración
+
+README con quickstart de AI SDK 7, posicionamiento advisory, límites del budget y guía `1.x → 2.0.0`.
+
+**Aceptación:** el quickstart compila; la migración enumera cada cambio incompatible; el README dice qué no hace la librería.
+
+### RFSM-10 — Adaptadores
+
+Vercel es el adaptador oficial. OpenAI, Anthropic, LangChain y Gemini quedan marcados como experimentales; no se añaden adaptadores nuevos.
+
+**Aceptación:** README y exports coinciden; los adaptadores experimentales no se presentan como integraciones completas.
 
 ## Secuencia de commits
 
 ```text
 fix(deps): remove unused provider peer dependencies
-fix(core): make config.tools the single gating authority
 fix(core): reject stale async transitions
-fix(vercel): use AI SDK 7 activeTools instead of mutating tools
-test: cover gating, async races and Vercel prepareStep
-chore(release): 1.5.0
+fix(vercel): use AI SDK 7 activeTools
+fix(core): make config.tools the single gating authority
+fix(vercel): honor registry gates in activeTools
+fix(core): make the tool budget contract explicit
+feat(types)!: preserve literal state unions in the public API
+docs: align README with verified behavior
+docs: add P0 checkpoint
+docs: add 2.0.0 migration guide and release scope
+chore(release): 2.0.0
 ```
 
 ## Checklist de release
 
 - [ ] `pnpm build`
 - [ ] `pnpm test`
+- [ ] `pnpm typecheck`
 - [ ] `pnpm validate:package`
-- [ ] `npm pack` + instalación limpia con Node 20/22 y `ai@7`
-- [ ] `CHANGELOG.md` con `1.5.0`
-- [ ] `package.json` en `1.5.0`
-- [ ] Tag `v1.5.0`
+- [ ] `npm pack` + instalación limpia con Node 20/22, con y sin `ai@7`
+- [ ] `CHANGELOG.md` con `2.0.0`
+- [ ] `package.json` en `2.0.0`
+- [ ] Guía `docs/migrations/1.x-to-2.0.0.md`
+- [ ] Tag `v2.0.0`
 - [ ] Push con tags
 - [ ] GitHub Release
 - [ ] `npm publish` (requiere token válido; pendiente de reautenticación)
