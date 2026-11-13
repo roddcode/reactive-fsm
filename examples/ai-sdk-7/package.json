@@ -1,0 +1,17 @@
+{
+  "name": "reactive-fsm-example-ai-sdk-7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx src/index.ts && tsc --noEmit"
+  },
+  "dependencies": {
+    "ai": "^7.0.171",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  }
+}

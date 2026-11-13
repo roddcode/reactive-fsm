@@ -1,0 +1,47 @@
+name: Examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/**'
+      - 'src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/examples.yml'
+  pull_request:
+    paths:
+      - 'examples/**'
+      - 'src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/examples.yml'
+  workflow_dispatch:
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Pack the library
+        run: |
+          TARBALL=$(npm pack --pack-destination "$RUNNER_TEMP" | tail -n1)
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+      - name: Test the reactive-fsm example
+        run: |
+          cd examples/ai-sdk-7
+          npm install --no-audit --no-fund --no-package-lock
+          npm install --no-save "$RUNNER_TEMP/$TARBALL"
+          npm test
+      - name: Test the native AI SDK example
+        run: |
+          cd examples/native-ai-sdk
+          npm install --no-audit --no-fund --no-package-lock
+          npm test
