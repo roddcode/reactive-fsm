@@ -5,7 +5,7 @@
  * `prepareStep` that activates only the tools allowed by the current FSM state.
  * No provider API key is needed; the LLM behavior is simulated.
  */
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect } from 'vitest';
 import { createFSM, createVercelAdapter } from '../src/index';
 import type { ToolEntry } from '../src/index';
 
@@ -141,17 +141,21 @@ describe('Integration — Conversational Flow', () => {
 });
 
 describe('Integration — Loop Shield en flujo multi-step', () => {
-  const fsm = createFSM({
-    initialState: 'BOOKING',
-    states: ['BOOKING'],
-    tools: { BOOKING: ['check_availability', 'reserve_slot'] },
-    loopShield: { enabled: true, maxConsecutiveTools: 3 },
-  });
+  let fsm: ReturnType<typeof createFSM>;
+  let adapter: ReturnType<typeof createVercelAdapter<ChatContext>>;
 
-  const adapter = createVercelAdapter(fsm, registry, {
-    contactId: 'test-loop',
-    contactName: 'Juan',
-    stepCount: 0,
+  beforeEach(() => {
+    fsm = createFSM({
+      initialState: 'BOOKING',
+      states: ['BOOKING'],
+      tools: { BOOKING: ['check_availability', 'reserve_slot'] },
+      loopShield: { enabled: true, maxConsecutiveTools: 3 },
+    });
+    adapter = createVercelAdapter(fsm, registry, {
+      contactId: 'test-loop',
+      contactName: 'Juan',
+      stepCount: 0,
+    });
   });
 
   it('No fuerza stop con 2 tool calls consecutivas', async () => {

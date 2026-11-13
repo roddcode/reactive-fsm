@@ -68,6 +68,8 @@ export function createVercelAdapter<TContext = any>(
     return [...names];
   }
 
+  let processedSteps = 0;
+
   return {
     inject(): VercelInjectResult {
       const tools: VercelToolSet = {};
@@ -83,19 +85,31 @@ export function createVercelAdapter<TContext = any>(
       }
 
       const prepareStep: VercelPrepareStep = async ({ steps }) => {
-        // Count every tool call in the trailing run of tool-using steps.
-        // A text-only step breaks the run.
-        const consecutiveCalls: string[] = [];
-        for (let i = steps.length - 1; i >= 0; i--) {
-          const calls = steps[i].toolCalls ?? [];
-          if (calls.length === 0) break;
-          consecutiveCalls.unshift(...calls.map((call) => call.toolName));
+        // Process each completed step once. A text-only step breaks the
+        // consecutive-tool run; a new run (steps reset) starts from zero.
+        if (steps.length === 0 || steps.length < processedSteps) {
+          processedSteps = 0;
+          _fsm._resetLoopShield();
         }
 
-        _fsm._resetLoopShield();
-        for (const toolName of consecutiveCalls) {
-          _fsm._registerToolCall(toolName);
+        for (let i = processedSteps; i < steps.length; i++) {
+          const calls = steps[i].toolCalls ?? [];
+
+          if (calls.length === 0) {
+            _fsm._resetLoopShield();
+            continue;
+          }
+
+          const stateBefore = _fsm.currentState;
+          for (const call of calls) {
+            _fsm._registerToolCall(call.toolName);
+            // A fallback transition ends the episode; do not count the rest
+            // of the calls from the same step.
+            if (_fsm.currentState !== stateBefore) break;
+          }
         }
+
+        processedSteps = steps.length;
 
         if (_fsm.isLooping) {
           return { toolChoice: 'none' };

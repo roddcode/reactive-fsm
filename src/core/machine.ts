@@ -89,6 +89,7 @@ export function createFSM<const S extends string = string>(
     }
     _currentState = state;
     _revision++;
+    shield.reset();
     config.onTransition?.(from as S, state as S);
   }
 
@@ -103,6 +104,7 @@ export function createFSM<const S extends string = string>(
     }
     _currentState = state;
     _revision++;
+    shield.reset();
     config.onTransition?.(from as S, state as S);
   }
 
