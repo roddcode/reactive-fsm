@@ -53,6 +53,7 @@ export function createFSM<const S extends string = string>(
   }
 
   let _currentState = config.snapshot?.state ?? config.initialState;
+  let _revision = 0;
 
   const _context: Record<string, unknown> = config.context ? { ...config.context } : {};
 
@@ -77,10 +78,17 @@ export function createFSM<const S extends string = string>(
 
   async function doTransitionAsync(state: string): Promise<void> {
     const from = _currentState;
+    const revision = _revision;
     if (!(await checkGuard(from, state))) {
       throw new Error(`Guard blocked transition from "${from}" to "${state}"`);
     }
+    if (_revision !== revision) {
+      throw new Error(
+        `State changed from "${from}" to "${_currentState}" while transitioning to "${state}" (revision ${revision} -> ${_revision})`,
+      );
+    }
     _currentState = state;
+    _revision++;
     config.onTransition?.(from as S, state as S);
   }
 
@@ -94,12 +102,14 @@ export function createFSM<const S extends string = string>(
       throw new Error(`Guard blocked transition from "${from}" to "${state}"`);
     }
     _currentState = state;
+    _revision++;
     config.onTransition?.(from as S, state as S);
   }
 
   function doFallback(state: string): void {
     const from = _currentState;
     _currentState = state;
+    _revision++;
     config.onTransition?.(from as S, state as S);
   }
 
@@ -140,6 +150,7 @@ export function createFSM<const S extends string = string>(
         const fb = config.loopShield.fallbackState;
         if (validStates.has(fb) && _currentState !== fb) {
           doFallback(fb);
+          shield.reset();
         }
       }
     },
