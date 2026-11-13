@@ -69,6 +69,7 @@ export function createVercelAdapter<TContext = any>(
   }
 
   let processedSteps = 0;
+  let lastRevision = _fsm._getRevision();
 
   return {
     inject(): VercelInjectResult {
@@ -89,27 +90,39 @@ export function createVercelAdapter<TContext = any>(
         // consecutive-tool run; a new run (steps reset) starts from zero.
         if (steps.length === 0 || steps.length < processedSteps) {
           processedSteps = 0;
+          lastRevision = _fsm._getRevision();
           _fsm._resetLoopShield();
         }
 
-        for (let i = processedSteps; i < steps.length; i++) {
-          const calls = steps[i].toolCalls ?? [];
+        if (_fsm._getRevision() !== lastRevision) {
+          // A state transition happened during the last completed step. The
+          // FSM already reset the budget; do not count calls from the previous
+          // state inside the new state's budget.
+          processedSteps = steps.length;
+          lastRevision = _fsm._getRevision();
+          _fsm._resetLoopShield();
+        } else {
+          for (let i = processedSteps; i < steps.length; i++) {
+            const calls = steps[i].toolCalls ?? [];
 
-          if (calls.length === 0) {
-            _fsm._resetLoopShield();
-            continue;
+            if (calls.length === 0) {
+              _fsm._resetLoopShield();
+              continue;
+            }
+
+            const stateBefore = _fsm.currentState;
+            for (const call of calls) {
+              _fsm._registerToolCall(call.toolName);
+              // A fallback transition ends the episode; do not count the rest
+              // of the calls from the same step.
+              if (_fsm.currentState !== stateBefore) break;
+            }
           }
 
-          const stateBefore = _fsm.currentState;
-          for (const call of calls) {
-            _fsm._registerToolCall(call.toolName);
-            // A fallback transition ends the episode; do not count the rest
-            // of the calls from the same step.
-            if (_fsm.currentState !== stateBefore) break;
-          }
+          processedSteps = steps.length;
         }
 
-        processedSteps = steps.length;
+        lastRevision = _fsm._getRevision();
 
         if (_fsm.isLooping) {
           return { toolChoice: 'none' };

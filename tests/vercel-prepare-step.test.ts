@@ -13,6 +13,15 @@ const registry: ToolEntry<{}>[] = [
     }),
   },
   {
+    name: 'b',
+    gates: ['B'],
+    build: () => ({
+      description: 'Tool B',
+      inputSchema: { type: 'object', properties: {} },
+      execute: () => {},
+    }),
+  },
+  {
     name: 'esc',
     gates: ['ESC'],
     build: () => ({
@@ -39,6 +48,49 @@ describe('createVercelAdapter — AI SDK 7 prepareStep', () => {
     });
 
     expect(result).toEqual({ toolChoice: 'none' });
+  });
+
+  it('does not count a previous-state call after a transition', async () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B'],
+      tools: { A: ['a'], B: ['b'] },
+      loopShield: { enabled: true, maxConsecutiveTools: 1 },
+    });
+    const adapter = createVercelAdapter(fsm, registry, {});
+    const injected = adapter.inject();
+
+    const first = await injected.prepareStep({ steps: [], stepNumber: 0 });
+    expect(first).toEqual({ activeTools: ['a'] });
+
+    fsm.transitionTo('B');
+
+    const second = await injected.prepareStep({
+      steps: [{ toolCalls: [{ toolName: 'a' }] }],
+      stepNumber: 1,
+    });
+
+    expect(second).toEqual({ activeTools: ['b'] });
+  });
+
+  it('still enforces the budget when the state does not change', async () => {
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A'],
+      tools: { A: ['a'] },
+      loopShield: { enabled: true, maxConsecutiveTools: 1 },
+    });
+    const adapter = createVercelAdapter(fsm, registry, {});
+    const injected = adapter.inject();
+
+    await injected.prepareStep({ steps: [], stepNumber: 0 });
+
+    const second = await injected.prepareStep({
+      steps: [{ toolCalls: [{ toolName: 'a' }] }],
+      stepNumber: 1,
+    });
+
+    expect(second).toEqual({ toolChoice: 'none' });
   });
 
   it('activates fallback tools and resets the shield', async () => {

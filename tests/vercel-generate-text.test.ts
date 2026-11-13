@@ -36,6 +36,9 @@ describe('Vercel AI SDK 7 — generateText integration', () => {
         IDENTITY: ['validate_dni'],
         BOOKING: ['check_availability'],
       },
+      // A transition resets the budget. The previous state's call must not
+      // consume BOOKING's first (and only) slot.
+      loopShield: { enabled: true, maxConsecutiveTools: 1 },
     });
 
     const registry: ToolEntry<{}>[] = [

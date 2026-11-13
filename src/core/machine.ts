@@ -31,6 +31,7 @@ export interface FSMPublic<S extends string = string> {
 export interface FSMInstance<S extends string = string> extends FSMPublic<S> {
   _registerToolCall(toolName?: string): void;
   _resetLoopShield(): void;
+  _getRevision(): number;
   _setState(state: S): void;
   _setStateAsync(state: S): Promise<void>;
 }
@@ -159,6 +160,10 @@ export function createFSM<const S extends string = string>(
 
     _resetLoopShield(): void {
       shield.reset();
+    },
+
+    _getRevision(): number {
+      return _revision;
     },
 
     _setState(state: string): void {
