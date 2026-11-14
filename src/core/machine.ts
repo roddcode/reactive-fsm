@@ -140,11 +140,11 @@ export function createFSM<const S extends string = string>(
       doTransition(state);
     },
 
-    transitionToAsync(state: string): Promise<void> {
+    async transitionToAsync(state: string): Promise<void> {
       if (!validStates.has(state)) {
         throw new Error(`Invalid state "${state}". Valid states: ${config.states.join(', ')}`);
       }
-      return doTransitionAsync(state);
+      await doTransitionAsync(state);
     },
 
     _registerToolCall(toolName?: string): void {
@@ -173,11 +173,11 @@ export function createFSM<const S extends string = string>(
       doTransition(state);
     },
 
-    _setStateAsync(state: string): Promise<void> {
+    async _setStateAsync(state: string): Promise<void> {
       if (!validStates.has(state)) {
         throw new Error(`Invalid state "${state}". Valid states: ${config.states.join(', ')}`);
       }
-      return doTransitionAsync(state);
+      await doTransitionAsync(state);
     },
 
     snapshot(): FSMSnapshot<S> {
