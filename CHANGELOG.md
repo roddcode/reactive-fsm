@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Vercel adapter is described as maintained and contract-tested, not “official”; it is not affiliated with Vercel.
 - Version references updated to `2.x`; the misleading `toMermaid()` diagram was removed from the README.
 - Incomplete provider examples and `prompts` examples were removed or clarified.
+- `onTransition` is documented as a post-commit notification, not a veto. Use `guard` to block a transition.
+- Added a “Production integration” guide covering per-conversation instances, external persistence, distributed concurrency, authorization, retries and observability.
+
+### Fixed
+
+- `transitionToAsync()` now rejects an invalid state as a promise instead of throwing synchronously. `_setStateAsync()` follows the same contract.
 
 ### Notes
 

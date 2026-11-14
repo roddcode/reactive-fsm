@@ -21,6 +21,88 @@ Gating is advisory. The model may still emit a tool call outside the active set,
 
 `snapshot()` stores only `{ state }`. It does not store context, budget counters, messages or tool results. Your application owns persistence.
 
+## `onTransition` is a notification, not a veto
+
+`onTransition` runs **after** the state has been committed. If it throws, the error propagates to the caller but the new state remains. It is not a validation hook and it does not roll back.
+
+Use `guard` to block a transition. Use `onTransition` for logging, metrics or side effects that are safe after the change.
+
+## Production integration
+
+`reactive-fsm` is an in-memory policy object. Production systems need to own the surrounding state and guarantees.
+
+### One instance per conversation or run
+
+Do not share a mutable FSM instance between concurrent conversations. Create one instance per conversation, request or isolated execution. If you need to resume, rehydrate it from your own store.
+
+### Persist state and context outside the library
+
+`snapshot()` returns only `{ state }`. Your application should persist:
+
+- the state returned by `snapshot()`;
+- the conversation context;
+- pending operations, messages and tool results;
+- the budget counters if you need them across restarts.
+
+A minimal rehydration looks like this:
+
+```ts
+const saved = await store.load(conversationId)
+
+const fsm = createFSM({
+  ...config,
+  snapshot: { state: saved.state },
+  context: saved.context,
+})
+```
+
+The library does not know how to load or save that record.
+
+### Distributed concurrency is your responsibility
+
+`_revision` protects one FSM instance in memory. It is not a distributed lock and it does not coordinate multiple processes or replicas.
+
+If two workers can handle the same conversation, use optimistic concurrency in your database (a version column), a queue keyed by conversation, or another application-level serialization mechanism.
+
+### Tool gating is not authorization
+
+The model only sees the tools you advertise, but your backend must still verify:
+
+- who is allowed to execute the operation;
+- whether the business rules allow it now;
+- whether the arguments are valid;
+- whether the operation is idempotent.
+
+`reactive-fsm` does not wrap `execute` and does not enforce permissions.
+
+### Retries, idempotency and compensations
+
+Tool calls can be retried by the model or by your infrastructure. The application owns:
+
+- idempotency keys;
+- retry policies;
+- outbox or saga patterns;
+- compensating actions for partial failures.
+
+The library does not provide transactions or compensations.
+
+### Observability
+
+Use `onTransition`, `onLoop` and your own logging/tracing around the model and tool executor. The library does not ship a telemetry system, OpenTelemetry integration or a dashboard.
+
+### A small architecture
+
+```text
+Client
+  -> Conversation service
+       -> one FSM instance per conversation (state + budget)
+       -> external store (state + context + pending operations)
+       -> model call (activeTools from the current state)
+       -> tool executor (authorization, idempotency, audit)
+```
+
+The library owns the state-to-tools policy. The service owns persistence, concurrency, authorization and recovery.
+
 ### Concurrency
 
 The FSM is a mutable object. Use one instance per conversation. It does not serialize concurrent transitions; it rejects stale async transitions with a monotonic revision.

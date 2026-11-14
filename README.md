@@ -225,6 +225,8 @@ interface FSMPublic<S extends string = string> {
 
 `prompts` is stored metadata. The runtime does not inject it automatically; your application decides how to use it.
 
+`onTransition` runs after the state is committed. If it throws, the error propagates but the new state remains. Use `guard` to veto a transition.
+
 `ToolEntry`:
 
 ```ts
