@@ -152,8 +152,11 @@ export function createFSM<const S extends string = string>(
       if (shield.isLooping() && config.loopShield?.fallbackState) {
         const fb = config.loopShield.fallbackState;
         if (validStates.has(fb) && _currentState !== fb) {
-          doFallback(fb);
-          shield.reset();
+          try {
+            doFallback(fb);
+          } finally {
+            shield.reset();
+          }
         }
       }
     },

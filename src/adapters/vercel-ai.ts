@@ -75,6 +75,17 @@ export function createVercelAdapter<TContext = any>(
     inject(): VercelInjectResult {
       const tools: VercelToolSet = {};
 
+      // A tool name must identify exactly one definition in the ToolSet.
+      // Otherwise the last build() wins while activeToolNames() can still
+      // activate the name through a different entry's gates.
+      const names = new Set<string>();
+      for (const entry of registry) {
+        if (names.has(entry.name)) {
+          throw new Error(`Duplicate tool name "${entry.name}" in registry`);
+        }
+        names.add(entry.name);
+      }
+
       // Build the full ToolSet once per injection. AI SDK 7 exposes only the
       // `activeTools` subset to the model, so the object stays stable while the
       // FSM state changes.
