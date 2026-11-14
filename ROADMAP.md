@@ -1,102 +1,75 @@
 # Roadmap
 
-> **Posicionamiento:** state-scoped tool availability and tool budgets for TypeScript AI agents.
-> Una política pequeña, explícita y provider-agnóstica para decidir qué herramientas se anuncian en cada estado y cuántas llamadas se permiten. No es un FSM completo, no es un runtime de agentes y no es una capa de autorización.
+## Purpose
 
-- **Auditoría base:** [`docs/audits/2026-11-12-v1.4.1.md`](docs/audits/2026-11-12-v1.4.1.md)
-- **Checkpoint P0:** [`docs/audits/2026-11-13-v1.5.0-checkpoint.md`](docs/audits/2026-11-13-v1.5.0-checkpoint.md)
-- **Decisiones:** [`ADR-0001`](docs/decisions/0001-scope-and-positioning.md), [`ADR-0002`](docs/decisions/0002-release-2.0.0-scope.md)
-- **Migración:** [`1.x → 2.0.0`](docs/migrations/1.x-to-2.0.0.md)
-- **Estado actual:** `2.0.2` publicada; `2.0.3` preparada con correcciones de mantenimiento.
-- **Foco actual:** mantenimiento correctivo. No se aprueban funcionalidades nuevas.
+`reactive-fsm` is a small policy layer for **state-scoped tool gating and tool budgets** in TypeScript AI agents. It decides which tools are advertised in each conversation state and how many consecutive tool calls are allowed between steps.
 
-## Principios
+It is not an agent runtime, an authorization layer, a workflow engine or a statechart library.
 
-1. Una sola fuente de verdad para el gating.
-2. Una sola integración oficial mantenida: Vercel AI SDK 7.
-3. El gating es advisory: la autorización real vive en la aplicación.
-4. Nada nuevo hasta que lo anterior sea verificable.
-5. Cada release se valida con build, tests, `npm pack` e instalación limpia.
+## Scope
 
-## Etapa 0 — Repo hygiene (sin cambio de versión)
+### Maintained
 
-**Resultado:** documentación permanente, `.gitignore` correcto y CI verde.
+- The core: `createFSM`, `buildToolsForGate`, `createLoopShield`.
+- The Vercel AI SDK 7 adapter.
+- Node 20+, ESM-only, zero runtime dependencies.
 
-- [x] `ci: use pnpm 10 across Node 20/22`
-- [x] `docs: add v1.4.1 audit, roadmap and scope ADR`
-- [x] `chore: track ROADMAP and ignore local scratch files`
-- [x] `chore: require Node 20+ and drop EOL Node 18 from CI`
-- [x] RFSM-05 CI verde y badge corregido.
+### Experimental
 
-**Criterio de salida:** CI verde en Node 20/22; `ROADMAP.md` y `docs/` visibles en GitHub; `git status` limpio. Node 18 queda fuera por EOL y porque Vitest 4 no lo soporta.
+- OpenAI, Anthropic, LangChain and Gemini adapters.
+- They format tool definitions but are not full runtime integrations and are not covered by contract tests.
 
-## Etapa 1 — v2.0.0 Stabilization + quality
+### Out of scope
 
-**Resultado:** instalable con los SDK actuales, gating consistente, sin carreras async, tipos literales y presupuesto explícito.
+- Tool execution or authorization.
+- Persistence, distributed locking or transactions.
+- Workflow orchestration, human-in-the-loop or multi-agent handoff.
+- OpenTelemetry, dashboards or a telemetry system.
+- A sixth adapter, CJS dual build or a DSL.
+- A rewrite on top of XState.
 
-- [x] RFSM-01 Quitar peer dependencies no usadas.
-- [x] RFSM-02 Unificar `config.tools` y `registry.gates`.
-- [x] RFSM-03 Reparar Vercel AI SDK 7: `prepareStep`, `activeTools`, `ToolSet`.
-- [x] RFSM-04 Rechazar transiciones async obsoletas.
-- [x] RFSM-05 CI verde en Node 20/22.
-- [x] RFSM-06 Fallback y loop shield con semántica explícita.
-- [x] RFSM-07 Tipos literales de estado en la API pública.
-- [x] RFSM-08 Tests de contrato con SDKs reales y `typecheck`.
-- [x] RFSM-09 README reescrito desde garantías demostradas.
-- [x] RFSM-10 Adaptadores no soportados marcados como experimentales.
-- [x] Corregir `activeToolNames()` para respetar `registry.gates`.
-- [x] Release `2.0.0`: changelog, migración, tarball validado y tag.
-- [ ] Release `2.0.1`: corregir la contabilización tras transición, validar tarball, tag y publicación.
+## Principles
 
-**Criterio de salida:** `npm install <tarball> ai@7` en limpio; tests adversariales de D01–D04 y del budget pasan; `pnpm validate:package` pasa; `CHANGELOG` y guía de migración listos.
+- `config.tools` is the single authority for tool availability.
+- Gating is advisory: the application still authorizes and validates execution.
+- One FSM instance per conversation or isolated run.
+- The tool budget is an admission budget between steps, not a strict per-call limit.
+- No new features without evidence from a real use case.
+- Contracts are documented with their limits, not only their happy path.
 
-## Etapa 2 — v2.1.0 Adoption (solo con evidencia)
+## Direction
 
-**Resultado:** adopción real, no más superficie.
+### 2.0.x — maintenance
 
-- [ ] Un caso de uso documentado con métricas de complejidad/errores.
-- [ ] Evaluar la eliminación de adaptadores no soportados y APIs muertas (`prompts`, `schema` sin integración, `toMermaid`, `currentStateGroup`).
-- [ ] Comparación reproducible con la solución nativa del SDK, o retirar la comparación.
-- [ ] Solo entonces evaluar nuevas funcionalidades solicitadas por usuarios.
+Correctness fixes, documentation, compatibility and security. No new features.
 
-**Criterio de salida:** evidencia de que reactive-fsm reduce complejidad o errores frente a la solución nativa. Sin esa evidencia, no se amplía el alcance.
+### 2.1.0 — only with evidence
 
-## Etapa 3 — v3.0.0 Scope reduction (solo si se justifica)
+Evaluate only if a real use case demonstrates that the abstraction reduces complexity or errors:
 
-**Resultado:** una librería pequeña, especializada y honesta.
+- a documented production use case;
+- a demand-driven decision on experimental adapters;
+- removal of dead APIs if justified;
+- a reproducible comparison against native `prepareStep`/`activeTools`.
 
-- [ ] Eliminar adaptadores no soportados y APIs muertas si la evidencia de 2.1.0 lo justifica.
-- [ ] Mantener el nombre y el posicionamiento de política de herramientas; no convertirlo en framework.
+### 3.0.0 — only if justified
 
-## No hacer
+A major release only for breaking changes that the evidence supports. Not for cosmetic scope reduction.
 
-- Sexto adaptador.
-- Motor completo de workflows, persistencia integrada o dashboard.
-- Detección “inteligente” de loops.
-- Marketplace, playground, extensión de VSCode, port a Python.
-- DSL propio, multi-agente, voz, A/B testing, self-healing, content guardrails.
-- OpenTelemetry en el core.
-- Build dual ESM+CJS por defecto.
-- Reescribir sobre XState.
-- Benchmark vs LangGraph sin medición reproducible.
-- Optimizaciones de rendimiento sin problema medible.
+## Where work lives
 
-## Protocolo de iteración
+| Place | Responsibility |
+|---|---|
+| `ROADMAP.md` | Public direction, scope and approved priorities |
+| GitHub Issues | Concrete, reproducible, approved work with acceptance criteria |
+| `roadmap.local.md` | Private research, hypotheses and deferred decisions (not tracked) |
+| `CHANGELOG.md` | Changes actually released |
+| `docs/decisions/` | Architecture and scope decisions |
+| `docs/audits/` | Dated evidence and checkpoints |
 
-1. Un milestone = un resultado verificable, no un sprint por fechas.
-2. No crear más de 5 issues P0 a la vez.
-3. Cada cierre exige: CI verde, `pnpm validate:package`, `npm pack` + instalación limpia, `CHANGELOG` y README actualizados, tag y GitHub Release.
-4. La auditoría no se edita: se reemplaza por otra fechada en `docs/audits/`.
-5. El roadmap no se publica en npm; `files` sigue con `dist`, `README.md` y `LICENSE`.
+## References
 
-## Historial de versiones
-
-| Versión | Fecha | Estado | Nota |
-|---|---|---|---|
-| `1.4.1` | 2026-09-26 | Publicada | Última versión auditada |
-| `2.0.0` | 2026-11-13 | Etiquetada, no publicada | Candidato reemplazado por 2.0.1 |
-| `2.0.1` | 2026-11-13 | Publicada | Corrige la contabilización tras transición |
-| `2.0.2` | 2026-11-13 | Publicada | Docs site, ejemplos, metadata y fix de `transitionToAsync` |
-| `2.0.3` | 2026-11-13 | Preparada, no publicada | Duplicados de registry, fallback con callback que lanza, typecheck en CI |
-| `2.1.0` | — | Planificada | Adopción y evaluación de recortes |
-| `3.0.0` | — | Solo si se justifica | Reducción de alcance |
+- [Documentation](https://roddcode.github.io/reactive-fsm/)
+- [Migration guide](docs/migrations/1.x-to-2.0.0.md)
+- [Scope decision](docs/decisions/0001-scope-and-positioning.md)
+- [Release 2.0.0 scope](docs/decisions/0002-release-2.0.0-scope.md)
