@@ -57,6 +57,32 @@ describe('onTransition contract', () => {
     expect(fsm.currentState).toBe('B');
   });
 
+  it('does not await an async onTransition callback', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let finished = false;
+
+    const fsm = createFSM({
+      initialState: 'A',
+      states: ['A', 'B'],
+      tools: { A: [], B: [] },
+      onTransition: async () => {
+        await pending;
+        finished = true;
+      },
+    });
+
+    await fsm.transitionToAsync('B');
+
+    expect(fsm.currentState).toBe('B');
+    expect(finished).toBe(false);
+
+    release();
+    await pending;
+  });
+
   it('does not call onTransition when the guard blocks', () => {
     const onTransition = vi.fn();
     const fsm = createFSM({
