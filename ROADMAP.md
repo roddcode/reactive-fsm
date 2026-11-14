@@ -7,8 +7,8 @@
 - **Checkpoint P0:** [`docs/audits/2026-11-13-v1.5.0-checkpoint.md`](docs/audits/2026-11-13-v1.5.0-checkpoint.md)
 - **Decisiones:** [`ADR-0001`](docs/decisions/0001-scope-and-positioning.md), [`ADR-0002`](docs/decisions/0002-release-2.0.0-scope.md)
 - **Migración:** [`1.x → 2.0.0`](docs/migrations/1.x-to-2.0.0.md)
-- **Estado actual:** `2.0.1` publicada; `2.0.2` en preparación (docs, ejemplos y metadata; sin cambios de runtime).
-- **Foco actual:** cerrar 2.0.2 y congelar el desarrollo significativo. No se aprueban funcionalidades nuevas.
+- **Estado actual:** `2.0.2` publicada; `2.0.3` preparada con correcciones de mantenimiento.
+- **Foco actual:** mantenimiento correctivo. No se aprueban funcionalidades nuevas.
 
 ## Principios
 
@@ -96,6 +96,7 @@
 | `1.4.1` | 2026-09-26 | Publicada | Última versión auditada |
 | `2.0.0` | 2026-11-13 | Etiquetada, no publicada | Candidato reemplazado por 2.0.1 |
 | `2.0.1` | 2026-11-13 | Publicada | Corrige la contabilización tras transición |
-| `2.0.2` | 2026-11-13 | Preparada, no publicada | Docs site, ejemplos, metadata; sin cambios de runtime |
+| `2.0.2` | 2026-11-13 | Publicada | Docs site, ejemplos, metadata y fix de `transitionToAsync` |
+| `2.0.3` | 2026-11-13 | Preparada, no publicada | Duplicados de registry, fallback con callback que lanza, typecheck en CI |
 | `2.1.0` | — | Planificada | Adopción y evaluación de recortes |
 | `3.0.0` | — | Solo si se justifica | Reducción de alcance |

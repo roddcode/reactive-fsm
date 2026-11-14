@@ -25,7 +25,27 @@ Gating is advisory. The model may still emit a tool call outside the active set,
 
 `onTransition` runs **after** the state has been committed. If it throws, the error propagates to the caller but the new state remains. It is not a validation hook and it does not roll back.
 
+It is also synchronous. The runtime does not await the callback. Do not use an async function for persistence: the transition is already committed and a rejection may be unhandled. Persist in your application around the transition.
+
 Use `guard` to block a transition. Use `onTransition` for logging, metrics or side effects that are safe after the change.
+
+## Validation is permissive
+
+`validateWith()` only validates schemas that expose `safeParse` (Zod/Valibot). A non-null schema without `safeParse` returns `{ ok: true }` without validating anything.
+
+Use a supported validator or validate before calling. Do not treat `ok: true` as proof that arbitrary JSON Schema was applied.
+
+## `allowedTools` is a view of the configuration
+
+`allowedTools` returns the array stored in `config.tools` for the current state. Mutating it changes the effective policy without a transition. Treat it as read-only.
+
+The same applies to the configuration object you pass to `createFSM()`: the library keeps references to its arrays. If you need dynamic policy changes, replace the configuration deliberately rather than mutating arrays in place.
+
+## Registry types are not fully checked
+
+`ToolEntry.gates` is a `string[]`, not a union of your states. A typo such as `BOOKNIG` compiles and simply never matches. `ToolEntry.build()` returns `unknown`; the Vercel adapter casts it to its structural tool type.
+
+If you need stronger guarantees, validate the registry at startup or type your `build()` return with `satisfies Tool` from `ai`.
 
 ## Production integration
 

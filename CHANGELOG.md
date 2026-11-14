@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2026-11-13
+
+### Fixed
+
+- The Vercel adapter rejects duplicate tool names in the registry before building the `ToolSet`. A name can no longer be active through one entry while resolving to another entry's implementation.
+- The fallback path resets the tool budget even if `onTransition` throws. The callback error still propagates; the state remains the fallback state.
+
+### Changed
+
+- CI runs `pnpm typecheck` on Node 20/22, not only during publish.
+
+### Documentation
+
+- `validateWith()` is documented as permissive: a schema without `safeParse` returns `{ ok: true }` without validating.
+- `onTransition` is documented as synchronous; async persistence must not rely on it.
+- `allowedTools` is documented as returning the configured array; do not mutate it.
+
+### Notes
+
+- No new runtime features. `2.0.3` is prepared but not tagged or published.
+
 ## [2.0.2] - 2026-11-13
 
 ### Added
@@ -30,8 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
-- No runtime changes.
-- `2.0.1` is published. `2.0.2` is prepared for approval; it is not published automatically.
+- `2.0.2` is published. It includes the `transitionToAsync()` error-delivery fix and documentation/examples changes; no new features.
 
 ## [2.0.1] - 2026-11-13
 
